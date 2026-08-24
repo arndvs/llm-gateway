@@ -52,8 +52,8 @@ apt-get update && apt-get install -y ca-certificates curl gnupg git make
 # (see docs.docker.com for the current steps for your Ubuntu release).
 
 cd /opt
-git clone https://github.com/arndvs/claude-code-copilot
-cd claude-code-copilot
+git clone https://github.com/arndvs/llm-gateway
+cd llm-gateway
 
 ```
 
@@ -72,7 +72,7 @@ aws sts get-caller-identity --region <region>   # expect the instance role ARN
 ## 3. Generate secrets
 
 ```bash
-cd /opt/claude-code-copilot
+cd /opt/llm-gateway
 umask 077
 make setup            # generates .env with a random LITELLM_MASTER_KEY (sk-…)
 chmod 600 .env
@@ -162,13 +162,13 @@ If either credential is rotated, update `.env` / redo the OAuth and recreate the
 docker build \
   --build-arg BUILD_SHA=$(git rev-parse --short HEAD) \
   --build-arg BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -t claude-code-copilot-proxy:latest .
+  -t llm-gateway-proxy:latest .
 
 docker run -d --name proxy --restart unless-stopped \
   --env-file .env \
   -v "$HOME/.config/litellm/github_copilot:/root/.config/litellm/github_copilot:rw" \
   -p "127.0.0.1:4000:4000" \
-  claude-code-copilot-proxy:latest
+  llm-gateway-proxy:latest
 
 ```
 
@@ -264,7 +264,7 @@ Expected output:
 ### Rotate the master key
 
 ```bash
-cd /opt/claude-code-copilot
+cd /opt/llm-gateway
 umask 077
 python3 -c "import uuid; open('.env','w').write('LITELLM_MASTER_KEY=sk-'+str(uuid.uuid4())+'\nLITELLM_PORT=4000\nLITELLM_LOCAL_MODEL_COST_MAP=true\n')"
 chmod 600 .env
@@ -275,7 +275,7 @@ docker run -d --name proxy --restart unless-stopped \
   --env-file .env \
   -v "$HOME/.config/litellm/github_copilot:/root/.config/litellm/github_copilot:rw" \
   -p "127.0.0.1:4000:4000" \
-  claude-code-copilot-proxy:latest
+  llm-gateway-proxy:latest
 
 ```
 
@@ -284,14 +284,14 @@ Then update Parameter Store (from CloudShell) with the new value and update any 
 ### Rotate the OpenRouter API key
 
 ```bash
-cd /opt/claude-code-copilot
+cd /opt/llm-gateway
 # update OPENROUTER_API_KEY in .env, then recreate (NOT restart):
 docker rm -f proxy 2>/dev/null || true
 docker run -d --name proxy --restart unless-stopped \
   --env-file .env \
   -v "$HOME/.config/litellm/github_copilot:/root/.config/litellm/github_copilot:rw" \
   -p "127.0.0.1:4000:4000" \
-  claude-code-copilot-proxy:latest
+  llm-gateway-proxy:latest
 
 ```
 
@@ -305,18 +305,18 @@ build, no dependency drift, instant rollback.
 ### Redeploy after a repo update (build on the box)
 
 ```bash
-cd /opt/claude-code-copilot
+cd /opt/llm-gateway
 git fetch origin && git reset --hard origin/main   # or your deploy branch
 docker build \
   --build-arg BUILD_SHA="$(git rev-parse --short HEAD)" \
   --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -t claude-code-copilot-proxy:latest .
+  -t llm-gateway-proxy:latest .
 docker rm -f proxy 2>/dev/null || true
 docker run -d --name proxy --restart unless-stopped \
   --env-file .env \
   -v "$HOME/.config/litellm/github_copilot:/root/.config/litellm/github_copilot:rw" \
   -p "127.0.0.1:4000:4000" \
-  claude-code-copilot-proxy:latest
+  llm-gateway-proxy:latest
 
 ```
 
@@ -336,7 +336,7 @@ OAuth token mount — not a git checkout.
 
 ```bash
 # CloudShell (write access)
-aws ecr create-repository --repository-name claude-code-copilot-proxy --region <region>
+aws ecr create-repository --repository-name llm-gateway-proxy --region <region>
 ```
 
 Grant the **instance role** pull access — `ecr:GetAuthorizationToken` (resource
@@ -350,7 +350,7 @@ without it.)
 **2. Build and push (build host or CI):**
 
 ```bash
-ACCOUNT=<account>; REGION=<region>; REPO=claude-code-copilot-proxy
+ACCOUNT=<account>; REGION=<region>; REPO=llm-gateway-proxy
 ECR_URI=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO
 SHA=$(git rev-parse --short HEAD)
 
@@ -360,10 +360,10 @@ aws ecr get-login-password --region $REGION | \
 docker build \
   --build-arg BUILD_SHA="$SHA" \
   --build-arg BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  -t claude-code-copilot-proxy:$SHA .
+  -t llm-gateway-proxy:$SHA .
 # Tag with the commit SHA (immutable — enables rollback) AND a moving latest:
-docker tag claude-code-copilot-proxy:$SHA $ECR_URI:$SHA
-docker tag claude-code-copilot-proxy:$SHA $ECR_URI:latest
+docker tag llm-gateway-proxy:$SHA $ECR_URI:$SHA
+docker tag llm-gateway-proxy:$SHA $ECR_URI:latest
 docker push $ECR_URI:$SHA
 docker push $ECR_URI:latest
 ```
@@ -371,7 +371,7 @@ docker push $ECR_URI:latest
 **3. Deploy on the box (pull, don't build):**
 
 ```bash
-ACCOUNT=<account>; REGION=<region>; REPO=claude-code-copilot-proxy
+ACCOUNT=<account>; REGION=<region>; REPO=llm-gateway-proxy
 ECR_URI=$ACCOUNT.dkr.ecr.$REGION.amazonaws.com/$REPO
 TAG=<image-tag-from-step-2>   # the exact tag you pushed (e.g. the short git SHA); avoid 'latest' in prod
 
@@ -479,7 +479,7 @@ docker rm -f sandcastle-proxy 2>/dev/null || true
 docker run -d --name sandcastle-proxy --restart unless-stopped \
   --env-file .env -e LITELLM_LOG=DEBUG \
   -v "$HOME/.config/litellm/github_copilot:/root/.config/litellm/github_copilot:rw" \
-  -p "127.0.0.1:4000:4000" claude-code-copilot-proxy:latest
+  -p "127.0.0.1:4000:4000" llm-gateway-proxy:latest
 # reproduce, read `docker logs sandcastle-proxy`, then re-run WITHOUT -e LITELLM_LOG=DEBUG
 ```
 

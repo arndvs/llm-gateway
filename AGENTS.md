@@ -1,4 +1,4 @@
-# AGENTS.md — claude-code-copilot
+# AGENTS.md — llm-gateway
 
 ## Workspace role
 
