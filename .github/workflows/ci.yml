@@ -82,7 +82,7 @@ jobs:
           fi
 
       - name: Docker build (proves the proxy image builds)
-        run: docker build -t claude-code-copilot-proxy:ci .
+        run: docker build -t llm-gateway-proxy:ci .
 
       - name: Shellcheck
         continue-on-error: true
