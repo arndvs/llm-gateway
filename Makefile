@@ -4,7 +4,7 @@ PORT ?= 4000
 
 help:
 	@echo ""
-	@echo "claude-code-copilot"
+	@echo "llm-gateway"
 	@echo "─────────────────────────────────────────"
 	@echo "  make setup               Set up .env with generated keys"
 	@echo "  make start               Start LiteLLM proxy (OpenRouter primary, Copilot fallback)"

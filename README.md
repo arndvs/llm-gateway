@@ -1,4 +1,4 @@
-# claude-code-copilot
+# llm-gateway
 
 Route Claude Code through a secure LiteLLM proxy (local or hosted) that serves real completions via OpenRouter as the primary upstream, with GitHub Copilot as an automatic fallback. No separate Anthropic API key required.
 
@@ -20,7 +20,7 @@ This is the **infrastructure layer** for [ctrlshft](https://github.com/arndvs/ct
 │  ├── _proxy_env.sh → exports ANTHROPIC_BASE_URL        │
 │  └── afk.sh / once.sh → autonomous agent loops         │
 ├─────────────────────────────────────────────────────────┤
-│  claude-code-copilot (this repo — the proxy)            │
+│  llm-gateway (this repo — the proxy)                    │
 │  ├── LiteLLM translates Anthropic API → provider API    │
 │  ├── OpenRouter primary, Copilot OAuth fallback         │
 │  └── model names mapped per alias                       │
@@ -47,8 +47,8 @@ This is the **infrastructure layer** for [ctrlshft](https://github.com/arndvs/ct
 
 ```bash
 # 1. Clone
-git clone https://github.com/arndvs/claude-code-copilot
-cd claude-code-copilot
+git clone https://github.com/arndvs/llm-gateway
+cd llm-gateway
 
 # 2. Generate keys and check dependencies
 make setup
@@ -181,11 +181,11 @@ make start
 # Complete OAuth, then Ctrl-C
 
 # Run in Docker (mounts your cached Copilot token; reads OPENROUTER_API_KEY from .env)
-docker build -t claude-code-copilot .
+docker build -t llm-gateway .
 docker run --env-file .env \
   -v "$HOME/.config/litellm/github_copilot:/root/.config/litellm/github_copilot:rw" \
   -p "127.0.0.1:${LITELLM_PORT:-4000}:4000" \
-  claude-code-copilot
+  llm-gateway
 ```
 
 Mount the token directory read-write (`:rw`) — LiteLLM refreshes the Copilot
@@ -257,7 +257,7 @@ This proxy is built for autonomous coding agents. The primary consumer is [ctrls
 
 ```bash
 # ctrlshft integration (if using shft CLI)
-shft proxy init ~/dev/ops/claude-code-copilot   # register proxy directory
+shft proxy init ~/dev/ops/llm-gateway   # register proxy directory
 shft proxy on                                    # enable proxy routing
 shft proxy start                                 # launch daemon
 shft proxy status                                # check health + PID
@@ -319,8 +319,8 @@ Three automated workflows keep the hosted proxy honest — they run on GitHub Ac
 To dispatch a health check manually:
 
 ```bash
-gh workflow run proxy-canary.yml --repo arndvs/claude-code-copilot
-gh workflow run model-health.yml --repo arndvs/claude-code-copilot
+gh workflow run proxy-canary.yml --repo arndvs/llm-gateway
+gh workflow run model-health.yml --repo arndvs/llm-gateway
 ```
 
 **Watch the live logs** — every completion emits a `PROXY_LOG` JSON line:
@@ -367,15 +367,15 @@ This repo ships the [ctrlshft Sandcastle](https://github.com/arndvs/ctrlshft) ag
 Wire the proxy secrets via the GitHub CLI:
 
 ```bash
-gh secret set LITELLM_BASE_URL --repo arndvs/claude-code-copilot
-gh secret set LITELLM_MASTER_KEY --repo arndvs/claude-code-copilot
-gh secret set AGENT_PAT --repo arndvs/claude-code-copilot
+gh secret set LITELLM_BASE_URL --repo arndvs/llm-gateway
+gh secret set LITELLM_MASTER_KEY --repo arndvs/llm-gateway
+gh secret set AGENT_PAT --repo arndvs/llm-gateway
 ```
 
 ### Example: open an issue and let the agent handle it
 
 ```bash
-gh issue create --repo arndvs/claude-code-copilot \
+gh issue create --repo arndvs/llm-gateway \
   --title "Add request-id header to PROXY_LOG" \
   --body "Log the x-request-id header when present so completions can be correlated across logs." \
   --label "agent:review"

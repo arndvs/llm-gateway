@@ -1,4 +1,4 @@
-# CONTEXT.md — claude-code-copilot
+# CONTEXT.md — llm-gateway
 
 ## 1. LiteLLM → Copilot routing (with OpenRouter primary)
 
