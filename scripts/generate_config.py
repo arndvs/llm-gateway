@@ -51,25 +51,26 @@ FALLBACK_SUFFIX = "-fallback"
 # OpenRouter is the default upstream: it serves real completions reliably,
 # while Copilot's Claude models return empty-200 ('no choices') responses that
 # LiteLLM treats as success (no fallback). Copilot remains the automatic
-# fallback lane per alias. All Copilot fallbacks route to opus-4.6 — the one
-# consistently-working Copilot model (opus-4.8/4.7 return empty completions).
+# fallback lane per alias. All Copilot fallbacks route to claude-sonnet-5 —
+# the current, available Copilot model (claude-opus-4.6 was removed from the
+# vscode-chat integrator's model list on 2026-08-24).
 # Adding a model is a one-line edit here; regenerate and commit.
 MODEL_MAPPING = {
     "claude-sonnet-4-6": {
         "primary": f"{OPENROUTER_PREFIX}deepseek/deepseek-v4-flash-0731",
-        "fallback": f"{COPILOT_PREFIX}claude-opus-4.6",
+        "fallback": f"{COPILOT_PREFIX}claude-sonnet-5",
     },
     "claude-haiku-4-5-20251001": {
         "primary": f"{OPENROUTER_PREFIX}deepseek/deepseek-v4-flash-0731",
-        "fallback": f"{COPILOT_PREFIX}claude-opus-4.6",  # Copilot has no Haiku
+        "fallback": f"{COPILOT_PREFIX}claude-sonnet-5",  # Copilot has no Haiku
     },
     "claude-opus-4-6": {
         "primary": f"{OPENROUTER_PREFIX}deepseek/deepseek-v4-flash-0731",
-        "fallback": f"{COPILOT_PREFIX}claude-opus-4.6",
+        "fallback": f"{COPILOT_PREFIX}claude-sonnet-5",
     },
     "claude-opus-4-7": {
         "primary": f"{OPENROUTER_PREFIX}deepseek/deepseek-v4-flash-0731",
-        "fallback": f"{COPILOT_PREFIX}claude-opus-4.6",
+        "fallback": f"{COPILOT_PREFIX}claude-sonnet-5",
     },
 }
 
