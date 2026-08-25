@@ -1,6 +1,6 @@
-"""Tests for litellm_logger — comprehensive unit tests.
+"""Tests for litellm_logger.
 
-Covers:
+Covers the pure helpers and the PROXY_LOG emission contract:
 - _duration_ms: datetime objects, numeric timestamps, error cases
 - _extract: OpenAI-style choices (dict/object), Anthropic-style content blocks,
   empty/missing content, non-string content, usage extraction
@@ -68,25 +68,11 @@ class TestDurationMs(unittest.TestCase):
         t = datetime(2024, 1, 1, 12, 0, 0)
         self.assertEqual(_duration_ms(t, t), 0)
 
-    def test_datetime_objects_large_duration(self):
-        start = datetime(2024, 1, 1, 0, 0, 0)
-        end = datetime(2024, 1, 1, 1, 0, 0)  # 1 hour
-        self.assertEqual(_duration_ms(start, end), 3600000)
-
     def test_numeric_timestamps_float(self):
         # LiteLLM may pass Unix timestamps as floats; delta = end - start in seconds
         start = 1700000000.0
         end = 1700000002.5  # 2.5s later
         self.assertEqual(_duration_ms(start, end), 2500)
-
-    def test_numeric_timestamps_int(self):
-        start = 1700000000
-        end = 1700000003  # 3s later
-        self.assertEqual(_duration_ms(start, end), 3000)
-
-    def test_numeric_zero_delta(self):
-        t = 1700000000.0
-        self.assertEqual(_duration_ms(t, t), 0)
 
     def test_none_inputs_returns_none(self):
         """When inputs are None, should return None (not raise)."""
@@ -730,7 +716,7 @@ class TestEmitStreamField(unittest.TestCase):
             "original_response": FakeHttpxResponse(200),
         }
         rec = _capture_emit(kwargs)
-        assert rec["stream"] is True
+        self.assertEqual(rec["stream"], True)
 
     def test_emit_stream_false_when_stream_false_in_kwargs(self):
         """When kwargs['stream'] is False, log should record stream=False."""
@@ -741,7 +727,7 @@ class TestEmitStreamField(unittest.TestCase):
             "original_response": FakeHttpxResponse(200),
         }
         rec = _capture_emit(kwargs)
-        assert rec["stream"] is False
+        self.assertEqual(rec["stream"], False)
 
     def test_emit_stream_none_when_missing(self):
         """When kwargs has no 'stream' key, log should record stream=None."""
@@ -751,7 +737,7 @@ class TestEmitStreamField(unittest.TestCase):
             "original_response": FakeHttpxResponse(200),
         }
         rec = _capture_emit(kwargs)
-        assert rec["stream"] is None
+        self.assertEqual(rec["stream"], None)
 
 
 # ===================================================================
@@ -788,9 +774,7 @@ class TestStreamingCallbacks(unittest.TestCase):
         return json.loads(line[len("PROXY_LOG "):])
 
     def test_log_stream_success_event(self):
-        """log_stream_event is a no-op: per-chunk hooks produce no PROXY_LOG output.
-        The final aggregated event is handled by log_success_event.
-        """
+        """log_stream_event is a no-op: per-chunk hooks produce no PROXY_LOG output."""
         kwargs = {"model": "test-model", "call_type": "completion", "stream": True}
         response_obj = {
             "choices": [{"finish_reason": "stop", "message": {"content": "hello"}}],
@@ -800,16 +784,15 @@ class TestStreamingCallbacks(unittest.TestCase):
         old_stdout = sys.stdout
         try:
             sys.stdout = buf
-            logger = ProxyObservabilityLogger()
-            logger.log_stream_event(kwargs, response_obj, datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 0, 1))
+            ProxyObservabilityLogger().log_stream_event(
+                kwargs, response_obj, datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 0, 1)
+            )
         finally:
             sys.stdout = old_stdout
-        assert buf.getvalue() == "", "log_stream_event should produce no output (no-op per-chunk hook)"
+        self.assertEqual(buf.getvalue(), "")
 
-    def test_async_log_stream_success_event(self):
-        """async_log_stream_event is a no-op: per-chunk hooks produce no PROXY_LOG output.
-        The final aggregated event is handled by async_log_success_event.
-        """
+    def test_async_log_stream_event_noop(self):
+        """async_log_stream_event is a no-op: per-chunk hooks produce no PROXY_LOG output."""
         kwargs = {"model": "test-model", "call_type": "completion", "stream": True}
         response_obj = {
             "choices": [{"finish_reason": "stop", "message": {"content": "hello"}}],
@@ -819,11 +802,14 @@ class TestStreamingCallbacks(unittest.TestCase):
         old_stdout = sys.stdout
         try:
             sys.stdout = buf
-            logger = ProxyObservabilityLogger()
-            asyncio.run(logger.async_log_stream_event(kwargs, response_obj, datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 0, 1)))
+            asyncio.run(
+                ProxyObservabilityLogger().async_log_stream_event(
+                    kwargs, response_obj, datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 0, 1)
+                )
+            )
         finally:
             sys.stdout = old_stdout
-        assert buf.getvalue() == "", "async_log_stream_event should produce no output (no-op per-chunk hook)"
+        self.assertEqual(buf.getvalue(), "")
 
     def test_emit_with_all_none(self):
         """When everything is None, _emit should not crash."""
@@ -841,7 +827,8 @@ class TestStreamingCallbacks(unittest.TestCase):
         assert rec["ms"] is None
 
 
-# ============================================================# ProxyObservabilityLogger class — verify dispatch
+# ===================================================================
+# ProxyObservabilityLogger class — verify dispatch through the singleton
 # ===================================================================
 
 

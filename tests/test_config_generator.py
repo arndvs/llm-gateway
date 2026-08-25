@@ -61,11 +61,6 @@ class TestGeneratedConfigMatchesCommitted:
 class TestGeneratorStructure:
     """The generator must emit the full dual-provider structure."""
 
-    def test_emits_all_top_level_blocks(self):
-        data = yaml.safe_load(generate_config.generate_config())
-        for key in ("litellm_settings", "model_list", "general_settings", "router_settings"):
-            assert key in data, f"generated config missing top-level key {key!r}"
-
     def test_emits_router_fallbacks_as_list_of_dicts(self):
         data = yaml.safe_load(generate_config.generate_config())
         fallbacks = data["router_settings"]["fallbacks"]

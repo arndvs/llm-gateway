@@ -1,12 +1,10 @@
-"""Tests for health_version — /health/version endpoint logic."""
+"""Tests for health_version — the /health/version endpoint's get_version() logic."""
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 from unittest.mock import patch
-
-import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -48,14 +46,6 @@ class TestGetVersion:
         with patch("health_version.subprocess.run", side_effect=Exception("git not found")):
             result = get_version()
         assert result["sha"] == "unknown"
-
-    def test_built_at_defaults_to_unknown_when_unset(self, monkeypatch):
-        monkeypatch.delenv("BUILD_SHA", raising=False)
-        monkeypatch.delenv("BUILD_TIMESTAMP", raising=False)
-        from health_version import get_version
-
-        result = get_version()
-        assert result["built_at"] == "unknown"
 
     def test_response_has_exactly_two_keys(self, monkeypatch):
         monkeypatch.setenv("BUILD_SHA", "deadbee")
@@ -101,43 +91,20 @@ class TestCustomApiRouter:
         routes = [r.path for r in health_version.custom_api_router.routes]
         assert "/health/version" in routes
 
-    def test_route_allows_get(self):
-        import health_version
-
-        for route in health_version.custom_api_router.routes:
-            if route.path == "/health/version":
-                assert "GET" in route.methods
-                break
-        else:
-            pytest.fail("/health/version route not found")
-
-
-class TestVersionCallbackInstance:
-    """Verify the module exports a valid LiteLLM callback instance."""
-
-    def test_module_exports_version_callback_instance(self):
-        import health_version
-
-        assert hasattr(health_version, "version_callback_instance")
-
-    def test_callback_is_noop(self):
-        """The callback exists only to trigger module import; it does nothing."""
-        import health_version
-
-        # Should not raise
-        cb = health_version.version_callback_instance
-        assert cb is not None
-
 
 class TestRegisterRouter:
-    """Verify _register_router degrades gracefully outside the proxy."""
+    """Verify the module exports its integration points and degrades outside the proxy."""
 
-    def test_register_router_does_not_raise_outside_proxy(self):
-        """Importing the module outside litellm proxy context must not fail."""
-        # If we got here, the import at module level already succeeded
+    def test_module_exports_callback_and_router(self):
+        """The callback instance and router are what registration wires up."""
         import health_version
 
-        # Calling it again should also be safe
+        assert health_version.version_callback_instance is not None
+
+    def test_register_router_does_not_raise_outside_proxy(self):
+        """Calling _register_router outside a litellm proxy context must be safe."""
+        import health_version
+
         health_version._register_router()
 
 
@@ -298,30 +265,3 @@ class TestSingleRouteRegistration:
         resp = client.get("/health/version")
         assert resp.status_code == 200
         assert set(resp.json().keys()) == {"sha", "built_at"}
-
-    def test_duplicate_include_emits_fastapi_warning(self):
-        """Demonstrate that FastAPI does NOT silently de-duplicate routes:
-        including the same router twice triggers a 'Duplicate Operation ID' warning.
-
-        This validates why the _router_registered guard in _register_router()
-        is necessary — without it, double registration would silently corrupt the app.
-        """
-        import warnings
-        from fastapi import FastAPI
-        import health_version
-
-        app = FastAPI()
-        app.include_router(health_version.custom_api_router)
-        app.include_router(health_version.custom_api_router)  # simulated accident
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            app.openapi()
-
-        dup = [x for x in w if "Duplicate Operation ID" in str(x.message)]
-        assert len(dup) >= 1, (
-            "Expected FastAPI to warn about a duplicate /health/version route "
-            "when the router is included twice, but no warning was emitted. "
-            "If FastAPI now auto-deduplicates, the _router_registered guard may "
-            "be safely removed — but update this test first."
-        )

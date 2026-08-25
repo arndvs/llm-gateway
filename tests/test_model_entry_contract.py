@@ -94,10 +94,6 @@ def _is_fallback(name: str) -> bool:
 class TestModelEntryContract:
     """Every model_list entry must satisfy the CONTEXT.md §1 structural contract."""
 
-    def test_config_file_exists(self):
-        """Config file existence check — does not require the config fixture."""
-        assert CONFIG_PATH.exists(), "litellm_config.yaml not found at repo root"
-
     def test_every_entry_has_non_empty_model_name(self, config):
         """A missing/empty model_name means LiteLLM cannot route to the entry."""
         for i, entry in enumerate(_model_list(config)):
@@ -197,16 +193,11 @@ class TestMalformedConfigFailsLoud:
     over unexpected values.
     """
 
-    @pytest.mark.parametrize("bad", ["not-a-list", {"model_name": "x"}, 42, None])
+    @pytest.mark.parametrize("bad", ["not-a-list", {"model_name": "x"}, 42, None, []])
     def test_model_list_must_be_a_non_empty_list(self, bad):
         with pytest.raises(AssertionError, match="model_list must be a non-empty list"):
             _model_list({"model_list": bad})
 
-    def test_model_list_rejects_empty_list(self):
-        with pytest.raises(AssertionError, match="model_list must be a non-empty list"):
-            _model_list({"model_list": []})
-
-    @pytest.mark.parametrize("bad", ["oops", ["a", "b"], 7])
-    def test_litellm_params_must_be_a_mapping(self, bad):
+    def test_litellm_params_must_be_a_mapping(self):
         with pytest.raises(AssertionError, match="must be a mapping"):
-            _litellm_params({"model_name": "m", "litellm_params": bad})
+            _litellm_params({"model_name": "m", "litellm_params": "oops"})

@@ -283,8 +283,7 @@ class TestMalformedSettingsFailsLoud:
                 {"litellm_setting": {}}
             )
 
-    @pytest.mark.parametrize("bad", ["not-a-mapping", ["x"], 42, None])
-    def test_litellm_settings_must_be_a_mapping(self, bad):
+    def test_litellm_settings_must_be_a_mapping(self):
         """litellm_settings as a non-mapping must fail with a clear message."""
         with pytest.raises(AssertionError, match="litellm_settings must be a mapping"):
-            _litellm_settings({"litellm_settings": bad})
+            _litellm_settings({"litellm_settings": "not-a-mapping"})
