@@ -30,7 +30,7 @@ model_list:
   # Fallback: GitHub Copilot (routed to opus-4.6 — opus-4.8 returns empty completions)
   - model_name: "claude-sonnet-4-6-fallback"
     litellm_params:
-      model: "github_copilot/claude-opus-4.6"
+      model: "github_copilot/claude-sonnet-5"
       stream: true
       extra_headers:
         Editor-Version: "vscode/1.106.3"
@@ -48,7 +48,7 @@ model_list:
   # Fallback: GitHub Copilot (no Haiku → Opus; routed to opus-4.6 — opus-4.8 returns empty)
   - model_name: "claude-haiku-4-5-20251001-fallback"
     litellm_params:
-      model: "github_copilot/claude-opus-4.6"
+      model: "github_copilot/claude-sonnet-5"
       stream: true
       extra_headers:
         Editor-Version: "vscode/1.106.3"
@@ -66,7 +66,7 @@ model_list:
   # Fallback: GitHub Copilot
   - model_name: "claude-opus-4-6-fallback"
     litellm_params:
-      model: "github_copilot/claude-opus-4.6"
+      model: "github_copilot/claude-sonnet-5"
       stream: true
       extra_headers:
         Editor-Version: "vscode/1.106.3"
@@ -84,7 +84,7 @@ model_list:
   # Fallback: GitHub Copilot (routed to opus-4.6 — opus-4.7 returns empty completions)
   - model_name: "claude-opus-4-7-fallback"
     litellm_params:
-      model: "github_copilot/claude-opus-4.6"
+      model: "github_copilot/claude-sonnet-5"
       stream: true
       extra_headers:
         Editor-Version: "vscode/1.106.3"
