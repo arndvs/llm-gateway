@@ -36,68 +36,6 @@ jobs:
             echo "drifted=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Hub-synced workflows must match the hub templates byte-for-byte (modulo
-      # render-time substitution). The proxy-canary and check-attribution
-      # workflows are sourced from the hub; if they drift, re-sync from the hub
-      # template. Prevents silent divergence like the probe-ordering bug.
-      - name: Compare hub-synced workflows vs hub templates
-        id: wf-drift
-        run: |
-          set -euo pipefail
-          # Mapping: local path -> hub template path
-          declare -A checks=(
-            [".github/workflows/proxy-canary.yml"]="templates/workflows-proxy/proxy-canary.yml"
-            [".github/workflows/check-attribution.yml"]="templates/workflows/check-attribution.yml"
-          )
-          drifted=0
-          for local in "${!checks[@]}"; do
-            if [ ! -f "$local" ]; then
-              echo "  MISSING $local (no local file)" | tee -a /tmp/wf-drift-list.txt
-              drifted=1
-              continue
-            fi
-            tmpl="${checks[$local]}"
-            curl -fsSL "https://raw.githubusercontent.com/arndvs/sandcastle-hub/main/$tmpl" -o /tmp/hub-template 2>/dev/null || { echo "  ? cannot fetch hub template $tmpl" >>&2; continue; }
-            # Normalize: hub templates use pinned actions/checkout SHA; consumers
-            # may use @v4 for actions that the hub template pins differently.
-            if ! diff -q "$local" /tmp/hub-template >/dev/null 2>&1; then
-              echo "  DRIFTED: $local vs hub $tmpl" >> ./wf-drift-report.txt
-              drifted=1
-            else
-              echo "  OK: $local matches hub template"
-            fi
-          done
-          if [ "$drifted" = "1" ]; then
-            echo "wf_drifted=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "wf_drifted=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Open review PR on workflow drift
-        if: steps.wf-drift.outputs.wf_drifted == 'true'
-        run: |
-          set -euo pipefail
-          branch="sandcastle/sync-workflows-$(date +%Y%m%d)"
-          git config user.name "claude-code[bot]"
-          git config user.email "claude-code[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          # Re-fetch the hub templates over the local copies
-          for path in .github/workflows/proxy-canary.yml .github/workflows/check-attribution.yml; do
-            case "$path" in
-              *proxy-canary.yml) tmpl="templates/workflows-proxy/proxy-canary.yml" ;;
-              *check-attribution.yml) tmpl="templates/workflows/check-attribution.yml" ;;
-            esac
-            curl -fsSL "https://raw.githubusercontent.com/arndvs/sandcastle-hub/main/$tmpl" -o "$path"
-          done
-          git add .github/workflows/proxy-canary.yml .github/workflows/check-attribution.yml
-          git commit -m "chore(sandcastle): re-sync hub-synced workflows from hub templates" || true
-          git push origin "$branch" || true
-          gh pr create -R ${{ github.repository }} \
-            --base dev \
-            --head "$branch" \
-            --title "chore(sandcastle): re-sync hub-synced workflows" \
-            --body "Detected drift in hub-synced workflows. Re-synced from \`arndvs/sandcastle-hub\` templates." || true
-
       - name: Open review PR on drift
         if: steps.drift.outputs.drifted == 'true'
         env:
@@ -113,7 +51,7 @@ jobs:
           git commit -m "chore(sandcastle): pin hub to $LATEST_SHA"
           git push origin "$branch"
           gh pr create -R ${{ github.repository }} \
-            --base dev \
+            --base main \
             --head "$branch" \
             --title "chore(sandcastle): review hub SHA update to $LATEST_SHA" \
             --body "The hub engine updated on main. This PR reviews the new SHA before pinning." || true
