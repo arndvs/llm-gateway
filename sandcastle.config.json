@@ -1,5 +1,5 @@
 {
-  "model": "claude-opus-4-6",
+  "model": "claude-opus-4-7",
   "baseBranch": "dev",
   "sandbox": "none",
   "promptDir": ".sandcastle/prompts",
