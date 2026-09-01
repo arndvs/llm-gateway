@@ -5,7 +5,7 @@
 **Runtime proxy, not product content.** This repo is a Sandcastle consumer and
 the Copilot proxy host. It is a sibling folder in the multi-root workspace but
 is not editable as product code — engine/template changes belong in
-`arndvs/sandcastle-hub` and the producer (`ctrlshft-public`). See
+`arndvs/ctrlshft-hub` and the producer (`ctrlshft-public`). See
 `~/dotfiles/WORKSPACE_INVARIANTS.md`.
 
 ## Security
