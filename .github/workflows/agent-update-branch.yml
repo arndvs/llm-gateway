@@ -27,7 +27,7 @@ jobs:
 
   update-branch:
     if: github.event.label.name == 'agent:update-branch' && github.event.pull_request.head.repo.full_name == github.repository
-    uses: arndvs/sandcastle-hub/.github/workflows/reusable-update-branch.yml@main
+    uses: arndvs/ctrlshft-hub/.github/workflows/reusable-update-branch.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
       branch: ${{ github.event.pull_request.head.ref }}

@@ -23,7 +23,7 @@ jobs:
           curl -fsSL \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.raw" \
-            "https://api.github.com/repos/arndvs/sandcastle-hub/contents/templates/labels.json?ref=main" \
+            "https://api.github.com/repos/arndvs/ctrlshft-hub/contents/templates/labels.json?ref=main" \
             > "$RUNNER_TEMP/labels.json"
 
       - name: Reconcile labels

@@ -23,7 +23,7 @@ jobs:
 
       - name: Fetch probe script from hub
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/arndvs/sandcastle-hub/main/templates/scripts/probe_completion.sh" \
+          curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/main/templates/scripts/probe_completion.sh" \
             -o "$RUNNER_TEMP/probe_completion.sh"
           chmod +x "$RUNNER_TEMP/probe_completion.sh"
 

@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           pinned=$(jq -r '.lastPinnedSha' .sandcastle/hub-version.json 2>/dev/null || echo "unknown")
-          latest=$(gh api repos/arndvs/sandcastle-hub/commits/main --jq '.sha' | cut -c1-7)
+          latest=$(gh api repos/arndvs/ctrlshft-hub/commits/main --jq '.sha' | cut -c1-7)
           echo "pinned=$pinned"
           echo "latest=$latest"
           if [ "$pinned" != "$latest" ]; then

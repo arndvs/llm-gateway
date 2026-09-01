@@ -25,7 +25,7 @@ jobs:
       ANTHROPIC_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
       ANTHROPIC_AUTH_TOKEN: ${{ secrets.LITELLM_MASTER_KEY }}
     steps:
-      - uses: arndvs/sandcastle-hub/actions/agent-run@main
+      - uses: arndvs/ctrlshft-hub/actions/agent-run@main
         with:
           workflow: repo-hygiene
           ref: main

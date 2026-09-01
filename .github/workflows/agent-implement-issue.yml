@@ -12,7 +12,7 @@ permissions:
 jobs:
   implement:
     if: github.event.label.name == 'agent:implement'
-    uses: arndvs/sandcastle-hub/.github/workflows/reusable-implement-issue.yml@main
+    uses: arndvs/ctrlshft-hub/.github/workflows/reusable-implement-issue.yml@main
     with:
       issue-number: ${{ github.event.issue.number }}
       issue-title: ${{ github.event.issue.title }}

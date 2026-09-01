@@ -27,7 +27,7 @@ jobs:
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label "agent:promote" -R ${{ github.repository }} || true
           gh issue edit "$ISSUE_NUMBER" --add-label "agent:in-progress" -R ${{ github.repository }}
-      - uses: arndvs/sandcastle-hub/actions/agent-run@main
+      - uses: arndvs/ctrlshft-hub/actions/agent-run@main
         with:
           workflow: promote-queued
           ref: main

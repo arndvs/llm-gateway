@@ -12,7 +12,7 @@ permissions:
 jobs:
   implement-prd:
     if: github.event.label.name == 'agent:implement-prd'
-    uses: arndvs/sandcastle-hub/.github/workflows/reusable-implement-prd.yml@main
+    uses: arndvs/ctrlshft-hub/.github/workflows/reusable-implement-prd.yml@main
     with:
       prd-number: ${{ github.event.issue.number }}
       prd-title: ${{ github.event.issue.title }}

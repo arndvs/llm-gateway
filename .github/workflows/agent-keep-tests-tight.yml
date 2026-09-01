@@ -11,5 +11,5 @@ permissions:
 
 jobs:
   keep-tests-tight:
-    uses: arndvs/sandcastle-hub/.github/workflows/reusable-keep-tests-tight.yml@main
+    uses: arndvs/ctrlshft-hub/.github/workflows/reusable-keep-tests-tight.yml@main
     secrets: inherit

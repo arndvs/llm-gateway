@@ -27,7 +27,7 @@ jobs:
 
   fix-pr-feedback:
     if: github.event.label.name == 'agent:fix' && github.event.pull_request.head.repo.full_name == github.repository
-    uses: arndvs/sandcastle-hub/.github/workflows/reusable-fix-pr-feedback.yml@main
+    uses: arndvs/ctrlshft-hub/.github/workflows/reusable-fix-pr-feedback.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
     secrets: inherit

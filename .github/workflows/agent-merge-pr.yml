@@ -27,7 +27,7 @@ jobs:
 
   merge:
     if: github.event.label.name == 'agent:merge' && github.event.pull_request.head.repo.full_name == github.repository
-    uses: arndvs/sandcastle-hub/.github/workflows/reusable-merge-pr.yml@main
+    uses: arndvs/ctrlshft-hub/.github/workflows/reusable-merge-pr.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
     secrets: inherit
