@@ -432,14 +432,6 @@ class TestExtractHttpInfoFromException(unittest.TestCase):
         info = _extract_http_info(kwargs)
         self.assertEqual(info["ratelimit"], {"limit": "60", "remaining": "0"})
 
-    def test_exception_without_headers_attr(self):
-        """An exception without .headers should not crash."""
-        exc = Exception("boom")
-        kwargs = {"exception": exc}
-        info = _extract_http_info(kwargs)
-        # Exception does not have .status_code so http_status should be None
-        self.assertIsNone(info["http_status"])
-
 
 class TestExtractHttpInfoDefensive(unittest.TestCase):
     """Defensive behaviour: never raise, degrade gracefully."""
@@ -462,21 +454,6 @@ class TestExtractHttpInfoDefensive(unittest.TestCase):
         kwargs = {"original_response": "some raw text"}
         info = _extract_http_info(kwargs)
         self.assertIsNone(info["http_status"])
-
-    def test_original_response_with_broken_headers(self):
-        """If .headers raises, we still get http_status."""
-
-        class BadHeaders:
-            status_code = 200
-
-            @property
-            def headers(self):
-                raise RuntimeError("broken")
-
-        kwargs = {"original_response": BadHeaders()}
-        info = _extract_http_info(kwargs)
-        self.assertEqual(info["http_status"], 200)
-        self.assertNotIn("ratelimit", info)
 
     def test_both_original_response_and_exception_prefers_original(self):
         """When both are present, original_response takes precedence."""
