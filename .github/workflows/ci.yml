@@ -58,8 +58,8 @@ jobs:
       - name: Lint pipeline label transitions (hub engine)
         run: |
           set -euo pipefail
-          git clone --depth 1 https://github.com/arndvs/ctrlshft-hub.git "$RUNNER_TEMP/sandcastle-hub"
-          cd "$RUNNER_TEMP/sandcastle-hub/engine"
+          git clone --depth 1 https://github.com/arndvs/ctrlshft-hub.git "$RUNNER_TEMP/ctrlshft-hub"
+          cd "$RUNNER_TEMP/ctrlshft-hub/engine"
           corepack enable
           pnpm install --frozen-lockfile
           pnpm exec tsx lib/lint-pipeline-labels.ts --workflows-dir "$GITHUB_WORKSPACE/.github/workflows"
