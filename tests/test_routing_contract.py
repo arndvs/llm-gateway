@@ -288,12 +288,20 @@ class TestPrimaryRouting:
         """thinking must be dropped (drop_params + additional_drop_params)."""
         router, mock = router_and_mock
         config = _load_config()
+        # The proxy applies litellm_settings.additional_drop_params per request
+        # (litellm's drop_params alone does not strip `thinking` in newer
+        # versions). Mirror that here so the test asserts the durable contract
+        # rather than a version-locked litellm default.
+        additional = config.get("litellm_settings", {}).get(
+            "additional_drop_params", []
+        )
         for alias in _primary_aliases(config):
             mock.recorded.clear()
             router.completion(
                 model=alias,
                 messages=[{"role": "user", "content": "hi"}],
                 thinking={"type": "enabled"},
+                additional_drop_params=additional,
             )
             assert mock.recorded, f"no upstream request recorded for {alias}"
             assert "thinking" not in mock.recorded[0]["body"], (

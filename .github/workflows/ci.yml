@@ -20,7 +20,10 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install pyyaml pytest fastapi httpx "litellm[proxy]"
+        # Pin litellm: unpinned installs drift with each release and have
+        # broken the routing-contract tests (drop_params behavior changed in
+        # 1.96+). Bump deliberately when upgrading.
+        run: pip install pyyaml pytest fastapi httpx "litellm[proxy]==1.95.0"
 
       # Convention: every shell script matching scripts/test_*.sh or tests/test_*.sh is
       # auto-discovered and run here — add a new structural-validation test by creating a
