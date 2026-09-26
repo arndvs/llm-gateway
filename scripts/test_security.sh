@@ -150,10 +150,9 @@ fi
 
 # Verify claude-enable does not use shell-dependent ~ paths for backups
 echo "Test 1d: claude-enable uses HOME for backup paths"
-# shellcheck disable=SC2088  # intentional: grep for literal ~ path that must NOT appear
+# shellcheck disable=SC2088,SC2016  # intentional: grep for literal ~ and $$ Makefile escapes
 if grep -A12 '^claude-enable:' Makefile | grep -q '~/.claude/settings.json'; then
     fail "claude-enable still uses shell-dependent ~/.claude/settings.json"
-# shellcheck disable=SC2016  # intentional: grep for literal $$ Makefile escape in source
 elif ! grep -A12 '^claude-enable:' Makefile | grep -q 'chmod 600 "\$\$BACKUP"'; then
     fail "claude-enable backup chmod does not quote BACKUP"
 else
@@ -161,10 +160,9 @@ else
 fi
 
 echo "Test 1d2: claude-disable uses HOME for backup paths"
-# shellcheck disable=SC2088  # intentional: grep for literal ~ path that must NOT appear
+# shellcheck disable=SC2088,SC2016  # intentional: grep for literal ~ and $$ Makefile escapes
 if grep -A10 '^claude-disable:' Makefile | grep -q '~/.claude/settings.json'; then
     fail "claude-disable still uses shell-dependent ~/.claude/settings.json"
-# shellcheck disable=SC2016  # intentional: grep for literal $$ Makefile escape in source
 elif ! grep -A10 '^claude-disable:' Makefile | grep -q 'chmod 600 "\$\$BACKUP"'; then
     fail "claude-disable backup chmod does not quote BACKUP"
 else

@@ -88,7 +88,6 @@ jobs:
         run: docker build -t llm-gateway-proxy:ci .
 
       - name: Shellcheck
-        continue-on-error: true
         run: |
           sudo apt-get update -qq && sudo apt-get install -y shellcheck -qq
           shellcheck scripts/*.sh start_proxy.sh

@@ -14,14 +14,14 @@ is not editable as product code — engine/template changes belong in
 
 ## Architecture
 
-LiteLLM proxy translates Anthropic Messages API → GitHub Copilot API (primary), with OpenRouter as fallback.
+LiteLLM proxy translates Anthropic Messages API → OpenRouter (primary), with GitHub Copilot as fallback.
 
 ```
-Claude Code  →  LiteLLM (:4000)  →  api.githubcopilot.com (primary)
-                                    └→ openrouter.ai (fallback)
+Claude Code  →  LiteLLM (:4000)  →  openrouter.ai (primary)
+                                    └→ api.githubcopilot.com (fallback)
                  ↑ litellm_config.yaml
-                 ↑ OAuth token cached at ~/.config/litellm/github_copilot/
-                 ↑ OPENROUTER_API_KEY from .env (fallback)
+                 ↑ OPENROUTER_API_KEY from .env (primary)
+                 ↑ OAuth token cached at ~/.config/litellm/github_copilot/ (fallback)
 ```
 
 ## Key files

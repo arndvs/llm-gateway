@@ -294,7 +294,7 @@ model_list:
   # Fallback — GitHub Copilot
   - model_name: "claude-sonnet-4-6-fallback"
     litellm_params:
-      model: "github_copilot/claude-opus-4.6"
+      model: "github_copilot/claude-sonnet-5"
       extra_headers:
         Editor-Version: "vscode/1.106.3"
         Editor-Plugin-Version: "copilot/1.388.0"
@@ -312,7 +312,7 @@ Three automated workflows keep the hosted proxy honest — they run on GitHub Ac
 
 | Workflow | Schedule | On failure |
 |---|---|---|
-| **Proxy canary** | Every 10 min | Opens a `🚨 Proxy canary failing` issue labeled `proxy-canary` |
+| **Proxy canary** | Every 30 min | Opens a `🚨 Proxy canary failing` issue labeled `proxy-canary` |
 | **Model health** | Daily 13:00 UTC | Opens a `⚠️ Model health: configured alias(es) failing through the proxy` issue labeled `model-health` |
 | **CI** | On every push/PR | Fails the check — blocks merging |
 
