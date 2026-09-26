@@ -127,10 +127,10 @@ else
 fi
 
 # 4h: CI workflow triggers are accurate
-if grep -Eq 'every 10 min|[*]/10' "$FILE"; then
+if grep -Eq 'every 30 min|[*]/30' "$FILE"; then
     pass "Proxy-canary schedule referenced"
 else
-    fail "Missing proxy-canary schedule (every 10 min)"
+    fail "Missing proxy-canary schedule (every 30 min)"
 fi
 
 if grep -Eqi 'daily|13:00' "$FILE"; then

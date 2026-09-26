@@ -51,6 +51,15 @@ docker compose -f docker-compose.yml -f docker-compose.db.yml up --build
 ```
 
 > **Rule:** never set `DATABASE_URL` without also starting the db service — LiteLLM enters DB mode with no reachable database and returns `400 "No connected db"` on every request.
+>
+> **Executable contract (refs #169):** this rule is enforced at runtime, not
+> just documented. `scripts/db_mode_guard.py` is the single predicate
+> (`resolve_db_mode` / `assert_db_reachable`); the container entrypoint
+> (`entrypoint.sh`) and the shared launcher (`scripts/_launch_proxy.sh`) both
+> fail fast with the canonical error when `DATABASE_URL` is set without a
+> reachable Postgres. `tests/test_db_overlay_contract.sh` asserts the compose
+> pairing (base never sets `DATABASE_URL`; overlay always does + defines a
+> health-checked `db` with `depends_on: service_healthy`).
 
 ## 3. Observability — PROXY_LOG
 

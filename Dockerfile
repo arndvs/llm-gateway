@@ -18,6 +18,9 @@ WORKDIR /app
 COPY litellm_config.yaml .
 COPY litellm_logger.py .
 COPY health_version.py .
+COPY scripts/db_mode_guard.py scripts/db_mode_guard.py
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 EXPOSE 4000
 
@@ -32,4 +35,8 @@ ENV PYTHONPATH=/app
 ENV UV_NATIVE_TLS=true
 ENV LITELLM_LOCAL_MODEL_COST_MAP=true
 
-CMD ["litellm", "--config", "litellm_config.yaml", "--port", "4000", "--host", "0.0.0.0"]
+# Entrypoint enforces the DB-mode boundary (refs #169): DATABASE_URL set
+# requires a reachable Postgres, else fail fast at container start instead of
+# serving 400 "No connected db" on every request.
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD []

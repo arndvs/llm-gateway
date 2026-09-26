@@ -27,6 +27,17 @@ resolve_proxy_port() {
     python3 -c 'from proxy_endpoint import resolve_proxy_endpoint; print(resolve_proxy_endpoint(env_file=".env").port)'
 }
 
+# assert_db_mode_ok — enforce the DB-mode boundary (refs #169).
+#
+# DATABASE_URL set requires a reachable Postgres; otherwise LiteLLM enters DB
+# mode and serves 400 "No connected db" on every request while looking healthy.
+# Local launch (make start / start_proxy.sh) fails fast with the same canonical
+# error as the container entrypoint.
+assert_db_mode_ok() {
+  PYTHONPATH="$LAUNCH_PROXY_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 "$LAUNCH_PROXY_ROOT/scripts/db_mode_guard.py" || return 1
+}
+
 # launch_proxy [port] [config_path]
 #
 # Validates LITELLM_MASTER_KEY is set, reads the LiteLLM version from
@@ -44,6 +55,12 @@ launch_proxy() {
 
   if [[ -z "${LITELLM_MASTER_KEY:-}" ]]; then
     echo "❌ LITELLM_MASTER_KEY not set. Run 'make setup' or create .env first." >&2
+    return 1
+  fi
+
+  # DB-mode boundary (refs #169): fail fast on a stray DATABASE_URL with no
+  # reachable Postgres, instead of surfacing confusing 400s on the first test.
+  if ! assert_db_mode_ok; then
     return 1
   fi
 
