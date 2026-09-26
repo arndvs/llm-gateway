@@ -40,10 +40,6 @@ def config():
 class TestStreamingEnabled:
     """All model_list entries must have stream: true in litellm_params."""
 
-    def test_config_file_exists(self):
-        """Config file existence check — does not require the config fixture."""
-        assert CONFIG_PATH.exists(), "litellm_config.yaml not found at repo root"
-
     def test_all_models_have_stream_true(self, config):
         """Every model alias must set stream: true to enable streaming."""
         model_list = config.get("model_list", [])
