@@ -26,13 +26,9 @@ jobs:
       - name: Install PyYAML
         run: pip install pyyaml
 
-      - name: Fetch probe script from hub
+      - name: Fetch probe script from hub (pinned SHA)
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/main/templates/scripts/probe_completion.sh" \
-            -o "$RUNNER_TEMP/probe_completion.sh"
-          curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/main/templates/scripts/probe_parser.py" \
-            -o "$RUNNER_TEMP/probe_parser.py"
-          chmod +x "$RUNNER_TEMP/probe_completion.sh" "$RUNNER_TEMP/probe_parser.py"
+          bash scripts/fetch_probe_from_hub.sh --with-parser "$RUNNER_TEMP"
 
       - name: Probe each configured alias through the proxy
         id: probe

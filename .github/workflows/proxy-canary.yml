@@ -21,11 +21,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Fetch probe script from hub
+      - name: Fetch probe script from hub (pinned SHA)
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/main/templates/scripts/probe_completion.sh" \
-            -o "$RUNNER_TEMP/probe_completion.sh"
-          chmod +x "$RUNNER_TEMP/probe_completion.sh"
+          bash scripts/fetch_probe_from_hub.sh "$RUNNER_TEMP"
 
       - name: Probe proxy (readiness + real completion)
         id: probe
