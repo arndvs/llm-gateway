@@ -20,6 +20,7 @@ edit, not a code change.
 | `claude-haiku-4-5-20251001` | `openrouter/deepseek/deepseek-v4-flash-0731` | `github_copilot/claude-sonnet-5` (Copilot has no Haiku) |
 | `claude-opus-4-6` | `openrouter/deepseek/deepseek-v4-flash-0731` | `github_copilot/claude-sonnet-5` |
 | `claude-opus-4-7` | `openrouter/deepseek/deepseek-v4-flash-0731` | `github_copilot/claude-sonnet-5` |
+| `claude-opus-5` | `openrouter/deepseek/deepseek-v4-flash-0731` | `github_copilot/claude-sonnet-5` |
 
 No wildcard: `openrouter/*` is not a concrete model (HTTP 400 `no_db_connection`) and `github_copilot/*` silently passes unknown models through. Every alias has an explicit concrete fallback above; unknown models fail loudly by design.
 

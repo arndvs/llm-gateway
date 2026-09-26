@@ -2,116 +2,99 @@ litellm_settings:
   drop_params: true
   num_retries: 3
   request_timeout: 120
-  additional_drop_params: ["response_format", "thinking"]
-  # Structured JSON proxy logs + a lightweight observability callback that records
-  # each completion's upstream finish_reason / content length (metadata only, no
-  # message content). See litellm_logger.py.
+  additional_drop_params:
+  - response_format
+  - thinking
   json_logs: true
   callbacks:
-    - litellm_logger.proxy_handler_instance
-    - health_version.version_callback_instance
-
+  - litellm_logger.proxy_handler_instance
+  - health_version.version_callback_instance
 model_list:
-  # Claude Code sends hyphenated names; Copilot uses dotted names, OpenRouter
-  # uses provider/model IDs. Each alias has a PRIMARY (OpenRouter) and a
-  # FALLBACK (GitHub Copilot) deployment. router_settings.fallbacks wires them.
-  # OpenRouter is the default upstream: it serves real completions reliably,
-  # while Copilot's Claude models have been returning empty-200 ('no choices')
-  # responses that LiteLLM treats as success (no fallback). Copilot remains the
-  # automatic fallback lane per alias.
-
-  # Sonnet 4.6 — Claude Code's default model
-  # Primary: OpenRouter
-  - model_name: "claude-sonnet-4-6"
-    litellm_params:
-      model: "openrouter/deepseek/deepseek-v4-flash-0731"
-      api_key: "os.environ/OPENROUTER_API_KEY"
-      stream: true
-  # Fallback: GitHub Copilot (routed to opus-4.6 — opus-4.8 returns empty completions)
-  - model_name: "claude-sonnet-4-6-fallback"
-    litellm_params:
-      model: "github_copilot/claude-sonnet-5"
-      stream: true
-      extra_headers:
-        Editor-Version: "vscode/1.106.3"
-        Editor-Plugin-Version: "copilot/1.388.0"
-        Copilot-Integration-Id: "vscode-chat"
-        User-Agent: "GithubCopilot/1.388.0"
-
-  # Haiku — OpenRouter serves Haiku directly; Copilot has no Haiku (routes to Opus)
-  # Primary: OpenRouter
-  - model_name: "claude-haiku-4-5-20251001"
-    litellm_params:
-      model: "openrouter/deepseek/deepseek-v4-flash-0731"
-      api_key: "os.environ/OPENROUTER_API_KEY"
-      stream: true
-  # Fallback: GitHub Copilot (no Haiku → Opus; routed to opus-4.6 — opus-4.8 returns empty)
-  - model_name: "claude-haiku-4-5-20251001-fallback"
-    litellm_params:
-      model: "github_copilot/claude-sonnet-5"
-      stream: true
-      extra_headers:
-        Editor-Version: "vscode/1.106.3"
-        Editor-Plugin-Version: "copilot/1.388.0"
-        Copilot-Integration-Id: "vscode-chat"
-        User-Agent: "GithubCopilot/1.388.0"
-
-  # Opus 4.6
-  # Primary: OpenRouter
-  - model_name: "claude-opus-4-6"
-    litellm_params:
-      model: "openrouter/deepseek/deepseek-v4-flash-0731"
-      api_key: "os.environ/OPENROUTER_API_KEY"
-      stream: true
-  # Fallback: GitHub Copilot
-  - model_name: "claude-opus-4-6-fallback"
-    litellm_params:
-      model: "github_copilot/claude-sonnet-5"
-      stream: true
-      extra_headers:
-        Editor-Version: "vscode/1.106.3"
-        Editor-Plugin-Version: "copilot/1.388.0"
-        Copilot-Integration-Id: "vscode-chat"
-        User-Agent: "GithubCopilot/1.388.0"
-
-  # Opus 4.7
-  # Primary: OpenRouter
-  - model_name: "claude-opus-4-7"
-    litellm_params:
-      model: "openrouter/deepseek/deepseek-v4-flash-0731"
-      api_key: "os.environ/OPENROUTER_API_KEY"
-      stream: true
-  # Fallback: GitHub Copilot (routed to opus-4.6 — opus-4.7 returns empty completions)
-  - model_name: "claude-opus-4-7-fallback"
-    litellm_params:
-      model: "github_copilot/claude-sonnet-5"
-      stream: true
-      extra_headers:
-        Editor-Version: "vscode/1.106.3"
-        Editor-Plugin-Version: "copilot/1.388.0"
-        Copilot-Integration-Id: "vscode-chat"
-        User-Agent: "GithubCopilot/1.388.0"
-
-  # No wildcard: openrouter/* is not a concrete model (HTTP 400 no_db_connection)
-  # and github_copilot/* silently passes unknown models through. Every alias has
-  # an explicit concrete fallback above; unknown models fail loudly by design.
-
+- model_name: claude-sonnet-4-6
+  litellm_params:
+    model: openrouter/deepseek/deepseek-v4-flash-0731
+    api_key: os.environ/OPENROUTER_API_KEY
+    stream: true
+- model_name: claude-sonnet-4-6-fallback
+  litellm_params:
+    model: github_copilot/claude-sonnet-5
+    stream: true
+    extra_headers:
+      Editor-Version: vscode/1.106.3
+      Editor-Plugin-Version: copilot/1.388.0
+      Copilot-Integration-Id: vscode-chat
+      User-Agent: GithubCopilot/1.388.0
+- model_name: claude-haiku-4-5-20251001
+  litellm_params:
+    model: openrouter/deepseek/deepseek-v4-flash-0731
+    api_key: os.environ/OPENROUTER_API_KEY
+    stream: true
+- model_name: claude-haiku-4-5-20251001-fallback
+  litellm_params:
+    model: github_copilot/claude-sonnet-5
+    stream: true
+    extra_headers:
+      Editor-Version: vscode/1.106.3
+      Editor-Plugin-Version: copilot/1.388.0
+      Copilot-Integration-Id: vscode-chat
+      User-Agent: GithubCopilot/1.388.0
+- model_name: claude-opus-4-6
+  litellm_params:
+    model: openrouter/deepseek/deepseek-v4-flash-0731
+    api_key: os.environ/OPENROUTER_API_KEY
+    stream: true
+- model_name: claude-opus-4-6-fallback
+  litellm_params:
+    model: github_copilot/claude-sonnet-5
+    stream: true
+    extra_headers:
+      Editor-Version: vscode/1.106.3
+      Editor-Plugin-Version: copilot/1.388.0
+      Copilot-Integration-Id: vscode-chat
+      User-Agent: GithubCopilot/1.388.0
+- model_name: claude-opus-4-7
+  litellm_params:
+    model: openrouter/deepseek/deepseek-v4-flash-0731
+    api_key: os.environ/OPENROUTER_API_KEY
+    stream: true
+- model_name: claude-opus-4-7-fallback
+  litellm_params:
+    model: github_copilot/claude-sonnet-5
+    stream: true
+    extra_headers:
+      Editor-Version: vscode/1.106.3
+      Editor-Plugin-Version: copilot/1.388.0
+      Copilot-Integration-Id: vscode-chat
+      User-Agent: GithubCopilot/1.388.0
+- model_name: claude-opus-5
+  litellm_params:
+    model: openrouter/deepseek/deepseek-v4-flash-0731
+    api_key: os.environ/OPENROUTER_API_KEY
+    stream: true
+- model_name: claude-opus-5-fallback
+  litellm_params:
+    model: github_copilot/claude-sonnet-5
+    stream: true
+    extra_headers:
+      Editor-Version: vscode/1.106.3
+      Editor-Plugin-Version: copilot/1.388.0
+      Copilot-Integration-Id: vscode-chat
+      User-Agent: GithubCopilot/1.388.0
 general_settings:
-  master_key: "os.environ/LITELLM_MASTER_KEY"
-
+  master_key: os.environ/LITELLM_MASTER_KEY
 router_settings:
   num_retries: 3
   retry_after: 2
   allowed_fails: 3
   cooldown_time: 30
-  # LiteLLM expects fallbacks as a LIST of dicts: [{model: [fallback, ...]}]
   fallbacks:
-    - claude-sonnet-4-6:
-        - claude-sonnet-4-6-fallback
-    - claude-haiku-4-5-20251001:
-        - claude-haiku-4-5-20251001-fallback
-    - claude-opus-4-6:
-        - claude-opus-4-6-fallback
-    - claude-opus-4-7:
-        - claude-opus-4-7-fallback
-
+  - claude-sonnet-4-6:
+    - claude-sonnet-4-6-fallback
+  - claude-haiku-4-5-20251001:
+    - claude-haiku-4-5-20251001-fallback
+  - claude-opus-4-6:
+    - claude-opus-4-6-fallback
+  - claude-opus-4-7:
+    - claude-opus-4-7-fallback
+  - claude-opus-5:
+    - claude-opus-5-fallback

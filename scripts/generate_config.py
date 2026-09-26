@@ -72,6 +72,12 @@ MODEL_MAPPING = {
         "primary": f"{OPENROUTER_PREFIX}deepseek/deepseek-v4-flash-0731",
         "fallback": f"{COPILOT_PREFIX}claude-sonnet-5",
     },
+    # Claude Code v2.1.247+ requests claude-opus-5 by default; route it to the
+    # same OpenRouter primary as the other aliases with a Copilot fallback lane.
+    "claude-opus-5": {
+        "primary": f"{OPENROUTER_PREFIX}deepseek/deepseek-v4-flash-0731",
+        "fallback": f"{COPILOT_PREFIX}claude-sonnet-5",
+    },
 }
 
 
