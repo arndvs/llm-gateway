@@ -30,7 +30,9 @@ jobs:
         run: |
           curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/main/templates/scripts/probe_completion.sh" \
             -o "$RUNNER_TEMP/probe_completion.sh"
-          chmod +x "$RUNNER_TEMP/probe_completion.sh"
+          curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/main/templates/scripts/probe_parser.py" \
+            -o "$RUNNER_TEMP/probe_parser.py"
+          chmod +x "$RUNNER_TEMP/probe_completion.sh" "$RUNNER_TEMP/probe_parser.py"
 
       - name: Probe each configured alias through the proxy
         id: probe
