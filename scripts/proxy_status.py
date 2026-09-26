@@ -20,12 +20,14 @@ report never fails the target.
 Refs #81
 """
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 from proxy_endpoint import _read_env_port as _read_env_port_shared
+from proxy_endpoint import resolve_proxy_endpoint
 
 # Loopback hosts that mean "the proxy runs on this machine".
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -51,21 +53,38 @@ def resolve_proxy_url(settings, fallback_port=DEFAULT_PORT):
 
     ``None`` means "no proxy configured" (route to the Anthropic API directly):
     either ``settings`` has no dict ``env``, or ``env`` has no
-    ``ANTHROPIC_BASE_URL`` key. An empty ``ANTHROPIC_BASE_URL`` value falls back
-    to ``http://localhost:<fallback_port>`` (mirrors the Makefile's .env-port
+    ``ANTHROPIC_BASE_URL`` key, and no ``PROXY_BASE_URL`` override is set. An
+    empty ``ANTHROPIC_BASE_URL`` value falls back to
+    ``http://localhost:<fallback_port>`` (mirrors the Makefile's .env-port
     fallback).
+
+    Endpoint resolution delegates to the canonical resolver in
+    proxy_endpoint.py (refs #110, #128, #187) so ``PROXY_BASE_URL`` is honored
+    exactly as claude_enable.py honors it — ``make claude-status`` and
+    ``make claude-enable`` can never disagree about the endpoint. The
+    ``None``/coercion mapping below is the only logic kept local: it adapts the
+    resolver's always-a-URL output to the status contract (``None`` = direct,
+    non-string/whitespace values coerced so validate_proxy_url rejects them
+    instead of silently suggesting a local proxy).
     """
     env = settings.get("env") if isinstance(settings, dict) else None
-    if not isinstance(env, dict) or "ANTHROPIC_BASE_URL" not in env:
+    has_settings_url = isinstance(env, dict) and "ANTHROPIC_BASE_URL" in env
+    proxy_base = os.environ.get("PROXY_BASE_URL", "").strip()
+    if not has_settings_url and not proxy_base:
         return None
-    raw = env.get("ANTHROPIC_BASE_URL")
-    if raw == "":
-        # Only an explicit empty string falls back to the local proxy. Everything
-        # else (including JSON null and non-strings) is coerced to str so
-        # validate_proxy_url surfaces it as invalid instead of silently
-        # suggesting a local proxy or raising on .rstrip().
-        return f"http://localhost:{fallback_port}"
-    return str(raw).rstrip("/")
+    if has_settings_url:
+        raw = env.get("ANTHROPIC_BASE_URL")
+        if raw == "":
+            # Only an explicit empty string falls back to the local proxy.
+            return f"http://localhost:{fallback_port}"
+        if not isinstance(raw, str) or not raw.strip():
+            # Non-string or whitespace-only values are coerced so
+            # validate_proxy_url surfaces them as invalid instead of silently
+            # suggesting a local proxy (the canonical resolver would treat
+            # them as unset and fall to the localhost default).
+            return str(raw).rstrip("/")
+    endpoint = resolve_proxy_endpoint(settings=settings, env_file=".env")
+    return endpoint.url
 
 
 def validate_proxy_url(url):

@@ -23,6 +23,17 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import proxy_status  # noqa: E402  (import after sys.path setup)
 
 
+@pytest.fixture(autouse=True)
+def _clear_proxy_base_url(monkeypatch):
+    """Clear PROXY_BASE_URL so tests exercise the settings-only contract.
+
+    resolve_proxy_url now honors PROXY_BASE_URL (refs #187); without clearing
+    it, a developer's shell with PROXY_BASE_URL exported would change the
+    resolution of every settings-only test.
+    """
+    monkeypatch.delenv("PROXY_BASE_URL", raising=False)
+
+
 class TestResolveProxyUrl:
     def test_returns_configured_url(self):
         settings = {"env": {"ANTHROPIC_BASE_URL": "https://proxy.example.test"}}
@@ -56,6 +67,28 @@ class TestResolveProxyUrl:
         # An explicit JSON null must NOT be treated as "use localhost"; it is
         # coerced so validate_proxy_url rejects it (matches the old Makefile).
         assert proxy_status.resolve_proxy_url({"env": {"ANTHROPIC_BASE_URL": None}}) == "None"
+
+    def test_proxy_base_url_is_honored(self, monkeypatch):
+        # Ref #187: with PROXY_BASE_URL set and no ANTHROPIC_BASE_URL in
+        # settings, status must report the same endpoint claude-enable would
+        # write — not "routing direct".
+        monkeypatch.setenv("PROXY_BASE_URL", "https://proxy.example.test")
+        settings = {"env": {"OTHER": "x"}}
+        assert proxy_status.resolve_proxy_url(settings) == "https://proxy.example.test"
+
+    def test_proxy_base_url_wins_over_settings_url(self, monkeypatch):
+        # Canonical precedence (proxy_endpoint.py): PROXY_BASE_URL beats
+        # ANTHROPIC_BASE_URL. Status must agree with enable.
+        monkeypatch.setenv("PROXY_BASE_URL", "https://proxy.example.test")
+        settings = {"env": {"ANTHROPIC_BASE_URL": "http://localhost:4000"}}
+        assert proxy_status.resolve_proxy_url(settings) == "https://proxy.example.test"
+
+    def test_proxy_base_url_empty_string_is_ignored(self, monkeypatch):
+        # An empty PROXY_BASE_URL is treated as unset (matches the canonical
+        # resolver's .strip() handling).
+        monkeypatch.setenv("PROXY_BASE_URL", "")
+        settings = {"env": {"ANTHROPIC_BASE_URL": "https://proxy.example.test"}}
+        assert proxy_status.resolve_proxy_url(settings) == "https://proxy.example.test"
 
 
 class TestValidateProxyUrl:
