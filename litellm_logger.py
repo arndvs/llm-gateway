@@ -171,6 +171,45 @@ def _extract_http_info(kwargs):
     return result
 
 
+def _extract_routing(kwargs):
+    """Return (routed_model, is_fallback) defensively (refs #157).
+
+    ``routed_model`` is the actual model that served the request — the
+    ``litellm_params.model`` value (e.g. ``github_copilot/claude-opus-4.8``),
+    NOT the requested alias (``kwargs["model"]``, e.g. ``claude-sonnet-4-6``).
+    ``is_fallback`` is True when the serving deployment is a ``-fallback`` lane.
+
+    LiteLLM's callback exposes the resolved model via
+    ``kwargs["litellm_params"]["model"]``. ``is_fallback`` is derived by
+    checking whether that resolved model's alias lane is a fallback deployment
+    (``-fallback`` suffix), which is the durable contract generate_config.py
+    builds (refs #174).
+
+    Defensive: any extraction failure degrades to (None, None) — never raises.
+    """
+    try:
+        if not isinstance(kwargs, dict):
+            return None, None
+        litellm_params = kwargs.get("litellm_params")
+        if not isinstance(litellm_params, dict):
+            return None, None
+        routed_model = litellm_params.get("model")
+        if not isinstance(routed_model, str) or not routed_model:
+            return None, None
+        # The resolved model may be a full provider path (openrouter/...,
+        # github_copilot/...) or a bare alias. The fallback lane is identified
+        # by the alias suffix — check both the resolved model and the requested
+        # alias for the -fallback marker.
+        alias = kwargs.get("model")
+        is_fallback = bool(
+            (isinstance(alias, str) and alias.endswith("-fallback"))
+            or routed_model.endswith("-fallback")
+        )
+        return routed_model, is_fallback
+    except Exception:
+        return None, None
+
+
 def _emit(kwargs, response_obj, start_time, end_time, status):
     try:
         rec = {"t": "proxy_log", "status": status}
@@ -181,6 +220,12 @@ def _emit(kwargs, response_obj, start_time, end_time, status):
         else:
             rec["stream"] = None
         rec["ms"] = _duration_ms(start_time, end_time)
+
+        # Actual serving model + fallback flag (refs #157) — enables
+        # fallback-rate alerting via `grep 'is_fallback.*true'`.
+        routed_model, is_fallback = _extract_routing(kwargs)
+        rec["routed_model"] = routed_model
+        rec["is_fallback"] = is_fallback
 
         finish, content_len, ctoks = _extract(response_obj)
         rec["finish"] = finish

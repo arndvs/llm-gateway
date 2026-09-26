@@ -60,7 +60,9 @@ docker compose -f docker-compose.yml -f docker-compose.db.yml up --build
 
 | Field | Description |
 |---|---|
-| `model` | Requested model name |
+| `model` | Requested model name (alias) |
+| `routed_model` | Actual model that served the request (e.g. `openrouter/deepseek/deepseek-v4-flash-0731` or `github_copilot/claude-sonnet-5`); `null` when unavailable |
+| `is_fallback` | `true` when the serving deployment is a `-fallback` lane (Copilot); `false` for primary; `null` when unavailable |
 | `call_type` | LiteLLM call type |
 | `stream` | Whether the request used streaming (`true`, `false`, or `null` if unknown) |
 | `ms` | Latency in milliseconds |
@@ -71,6 +73,11 @@ docker compose -f docker-compose.yml -f docker-compose.db.yml up --build
 | `http_status` | HTTP status code from upstream (int or null) |
 | `ratelimit` | Dict of `x-ratelimit-*` headers (prefix-stripped); **omitted** when none present |
 | `status` | `success` or `failure` |
+
+**Fallback-rate alerting.** `routed_model` + `is_fallback` make fallback-served
+requests greppable: `grep 'is_fallback.*true'` on structured logs identifies
+every completion served by the Copilot fallback lane, enabling fallback-rate
+measurement and alerting when the primary (OpenRouter) degrades.
 
 **Design rules:**
 
@@ -85,7 +92,7 @@ Three workflows under `.github/workflows/`:
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci.yml` | push to `dev`/`main`, all PRs | Security tests (`test_security.sh`), YAML parse, compose config validation (base + db overlay), Docker build, ShellCheck |
-| `proxy-canary.yml` | every 10 min (`*/10 * * * *`) + manual | Probes hosted proxy: readiness check then a real `/v1/messages` completion. Hard failures (auth/5xx/unreachable) → opens issue. Empty content after retries → **warning, not failure** (transient upstream quirk) |
+| `proxy-canary.yml` | every 30 min (`*/30 * * * *`) + manual | Probes hosted proxy: readiness check then a real `/v1/messages` completion. Hard failures (auth/5xx/unreachable) → opens issue. Empty content after retries → **warning, not failure** (transient upstream quirk) |
 | `model-health.yml` | daily 13:00 UTC + manual | Extracts every explicit alias from `litellm_config.yaml`, sends a completion through the proxy for each. Failing aliases → auto-opens/updates a `model-health` issue |
 
 **Proxy-canary detail.** Retries up to 5 times with 6 s sleep between attempts. Distinguishes hard errors (401/403/400/5xx/unreachable) from the upstream empty-content quirk. On persistent empty content the job sets `status=degraded` and emits a GitHub Actions warning — the proxy is verified as up and authenticating, so it does not page.

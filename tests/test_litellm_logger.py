@@ -558,6 +558,70 @@ class TestEmitHttpInfo(unittest.TestCase):
         self.assertNotIn("SECRET_CONTENT_SHOULD_NOT_APPEAR", raw_line)
 
 
+class TestEmitRouting(unittest.TestCase):
+    """Verify _emit surfaces routed_model / is_fallback (refs #157)."""
+
+    def test_primary_path_is_fallback_false(self):
+        # Primary: requested alias routes to the OpenRouter deployment.
+        kwargs = {
+            "model": "claude-sonnet-4-6",
+            "call_type": "completion",
+            "litellm_params": {"model": "openrouter/deepseek/deepseek-v4-flash-0731"},
+            "original_response": FakeHttpxResponse(200),
+        }
+        rec = _capture_emit(kwargs)
+        self.assertEqual(
+            rec["routed_model"], "openrouter/deepseek/deepseek-v4-flash-0731"
+        )
+        self.assertFalse(rec["is_fallback"])
+
+    def test_fallback_path_is_fallback_true(self):
+        # Fallback: requested alias is the -fallback lane → Copilot deployment.
+        kwargs = {
+            "model": "claude-sonnet-4-6-fallback",
+            "call_type": "completion",
+            "litellm_params": {"model": "github_copilot/claude-sonnet-5"},
+            "original_response": FakeHttpxResponse(200),
+        }
+        rec = _capture_emit(kwargs)
+        self.assertEqual(rec["routed_model"], "github_copilot/claude-sonnet-5")
+        self.assertTrue(rec["is_fallback"])
+
+    def test_fallback_detected_via_resolved_model_suffix(self):
+        # Even when the requested alias has no -fallback suffix, a resolved
+        # model that IS a fallback lane must be flagged.
+        kwargs = {
+            "model": "claude-sonnet-4-6",
+            "call_type": "completion",
+            "litellm_params": {"model": "claude-sonnet-4-6-fallback"},
+            "original_response": FakeHttpxResponse(200),
+        }
+        rec = _capture_emit(kwargs)
+        self.assertTrue(rec["is_fallback"])
+
+    def test_missing_metadata_degrades_to_none(self):
+        # No litellm_params → both fields null, never raises.
+        kwargs = {
+            "model": "claude-sonnet-4-6",
+            "call_type": "completion",
+            "original_response": FakeHttpxResponse(200),
+        }
+        rec = _capture_emit(kwargs)
+        self.assertIsNone(rec["routed_model"])
+        self.assertIsNone(rec["is_fallback"])
+
+    def test_non_dict_litellm_params_degrades_to_none(self):
+        kwargs = {
+            "model": "claude-sonnet-4-6",
+            "call_type": "completion",
+            "litellm_params": "not-a-dict",
+            "original_response": FakeHttpxResponse(200),
+        }
+        rec = _capture_emit(kwargs)
+        self.assertIsNone(rec["routed_model"])
+        self.assertIsNone(rec["is_fallback"])
+
+
 class TestEmitJsonStructure(unittest.TestCase):
     """Verify the full JSON record structure from _emit."""
 
