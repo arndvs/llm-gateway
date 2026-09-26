@@ -3,17 +3,20 @@
 #
 # The model-health workflow must probe ONLY concrete upstream aliases. Probing
 # wildcards ('*') or fallback lanes ('*-fallback') reports non-models as failing
-# and pollutes every model-health issue (refs #148). This test locks the filter
-# shape so a config or workflow edit can't silently reintroduce the noise.
+# and pollutes every model-health issue (refs #148). The selector logic lives in
+# scripts/probe_selector.py (refs #174); this test asserts the workflow invokes
+# the module (so it can't silently drift back to an inline copy) and that the
+# module's behavior matches the contract.
 #
 # Checks:
-#   1. model-health.yml's alias extraction excludes '*' and any '*-fallback'
-#   2. The probe loop separates degraded (warning) from fail (page)
-#   3. The issue body has explicit Failing / Degraded sections
+#   1. model-health.yml invokes scripts/probe_selector.py (not an inline copy)
+#   2. probe_selector.select_probe_aliases excludes '*' and '*-fallback'
+#   3. The probe loop separates degraded (warning) from fail (page)
+#   4. The issue body has explicit Failing / Degraded sections
 #
 # Usage: bash scripts/test_model_health_probe_filter.sh
 #
-# Refs #148
+# Refs #148, #174
 
 set -euo pipefail
 
@@ -34,8 +37,8 @@ if [ ! -f "$WORKFLOW" ]; then
     exit 1
 fi
 
-# ── Test 1: probe set excludes wildcard and fallback suffixes ──
-echo "Test 1: probe set excludes wildcard and fallback aliases"
+# ── Test 1: workflow invokes the shared selector module ────────
+echo "Test 1: model-health.yml invokes scripts/probe_selector.py"
 if python3 -c "
 import yaml
 d = yaml.safe_load(open('$WORKFLOW', encoding='utf-8'))
@@ -46,18 +49,40 @@ for step in d['jobs']['model-health']['steps']:
         break
 assert probe_step, 'model-health probe step not found'
 run = probe_step.get('run', '')
-assert \"!=\\n '*' and not m['model_name'].endswith('-fallback')\" in run \
-    or \"'*-fallback'\" in run or \"endswith('-fallback')\" in run, \
-    'alias extraction does not exclude fallbacks'
+assert 'probe_selector' in run, 'workflow does not invoke probe_selector'
+assert 'select_probe_aliases' in run, 'workflow does not call select_probe_aliases'
 print('OK')
 " >/dev/null 2>&1; then
-    pass "alias extraction excludes '*' and '*-fallback'"
+    pass "workflow invokes probe_selector.select_probe_aliases"
 else
-    fail "alias extraction does not exclude '*' / '*-fallback'"
+    fail "workflow does not invoke the shared selector module"
 fi
 
-# ── Test 2: degraded is a warning, not a paging failure ────────
-echo "Test 2: degraded completions are warnings, not failures"
+# ── Test 2: selector behavior excludes wildcard and fallback ───
+echo "Test 2: probe_selector excludes '*' and '*-fallback'"
+if python3 -c "
+import sys
+sys.path.insert(0, 'scripts')
+from probe_selector import select_probe_aliases
+config = {
+    'model_list': [
+        {'model_name': 'claude-sonnet-4-6'},
+        {'model_name': '*'},
+        {'model_name': 'claude-opus-4-6'},
+        {'model_name': 'claude-sonnet-4-6-fallback'},
+    ]
+}
+aliases = select_probe_aliases(config)
+assert aliases == ['claude-sonnet-4-6', 'claude-opus-4-6'], aliases
+print('OK')
+" >/dev/null 2>&1; then
+    pass "selector keeps primaries, excludes '*' and '-fallback'"
+else
+    fail "selector does not exclude '*' / '-fallback'"
+fi
+
+# ── Test 3: degraded is a warning, not a paging failure ────────
+echo "Test 3: degraded completions are warnings, not failures"
 if python3 -c "
 import yaml
 d = yaml.safe_load(open('$WORKFLOW', encoding='utf-8'))
@@ -78,8 +103,8 @@ else
     fail "probe loop does not separate degraded from broken"
 fi
 
-# ── Test 3: issue body separates Failing and Degraded ──────────
-echo "Test 3: issue body has explicit Failing / Degraded sections"
+# ── Test 4: issue body separates Failing and Degraded ──────────
+echo "Test 4: issue body has explicit Failing / Degraded sections"
 if python3 -c "
 import yaml
 d = yaml.safe_load(open('$WORKFLOW', encoding='utf-8'))

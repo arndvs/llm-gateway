@@ -47,11 +47,12 @@ jobs:
             exit 1
           fi
 
-          # Concrete, probe-safe aliases — exclude the wildcard '*' and any
-          # fallback lane ('*-fallback') so we only probe real upstreams.
-          # openrouter/* and github_copilot/* are not concrete models: probing
-          # them returns HTTP 400 and pollutes every model-health report.
-          aliases=$(python3 -c "import yaml; d=yaml.safe_load(open('litellm_config.yaml')); print('\n'.join(m['model_name'] for m in d.get('model_list',[]) if m.get('model_name') and m['model_name'] != '*' and not m['model_name'].endswith('-fallback')))")
+          # Concrete, probe-safe aliases — delegated to scripts/probe_selector.py
+          # (refs #174), the single source of truth for the wildcard '*' and
+          # '-fallback' exclusion. openrouter/* and github_copilot/* are not
+          # concrete models: probing them returns HTTP 400 and pollutes every
+          # model-health report.
+          aliases=$(python3 -c "import json, sys, yaml; sys.path.insert(0, 'scripts'); from probe_selector import select_probe_aliases; d=yaml.safe_load(open('litellm_config.yaml')); print('\n'.join(select_probe_aliases(d)))")
           # Fail fast: a parse error or missing PyYAML yields an empty list, which
           # would otherwise sail through below as "all healthy" (a false green).
           if [ -z "$(printf '%s' "$aliases" | tr -d '[:space:]')" ]; then

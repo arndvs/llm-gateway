@@ -27,6 +27,7 @@ Refs #113, #133
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -36,6 +37,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = REPO_ROOT / "litellm_config.yaml"
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 # The four editor headers Copilot validates (single source: generate_config.py).
 EDITOR_HEADERS = {
@@ -45,7 +47,9 @@ EDITOR_HEADERS = {
     "User-Agent",
 }
 
-FALLBACK_SUFFIX = "-fallback"
+# Shared with the probe selector (refs #174) so the generator, the selector,
+# and the contract tests can never disagree about fallback-lane naming.
+from probe_selector import FALLBACK_SUFFIX  # noqa: E402
 
 
 def _load_config() -> dict:
@@ -207,14 +211,18 @@ def router_and_mock():
 
 
 def _primary_aliases(config: dict) -> list[str]:
-    """Return primary (non-fallback, non-wildcard) model aliases from the YAML."""
-    aliases = []
-    for entry in config["model_list"]:
-        name = entry["model_name"]
-        if name.endswith(FALLBACK_SUFFIX) or name == "*":
-            continue
-        aliases.append(name)
-    return aliases
+    """Return primary (non-fallback, non-wildcard) model aliases from the YAML.
+
+    Delegates to the shared probe selector (refs #174) so the routing contract
+    and the health probes share one definition of a probe-worthy alias.
+    """
+    from probe_selector import is_probe_worthy
+
+    return [
+        entry["model_name"]
+        for entry in config["model_list"]
+        if is_probe_worthy(entry["model_name"])
+    ]
 
 
 def _fallback_aliases(config: dict) -> list[str]:

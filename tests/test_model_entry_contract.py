@@ -14,14 +14,16 @@ Refs #80
 
 from __future__ import annotations
 
-import yaml
+import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = REPO_ROOT / "litellm_config.yaml"
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 # Primary deployments route through the OpenRouter provider (default upstream).
 OPENROUTER_MODEL_PREFIX = "openrouter/"
@@ -32,8 +34,10 @@ COPILOT_MODEL_PREFIX = "github_copilot/"
 # Primary entries carry an api_key read from the environment.
 API_KEY_REF = "os.environ/OPENROUTER_API_KEY"
 
-# Fallback model_names are the primary name + this suffix.
-FALLBACK_SUFFIX = "-fallback"
+# Fallback model_names are the primary name + this suffix. Shared with the
+# probe selector (refs #174) so the generator, the selector, and the contract
+# tests can never disagree about what a fallback lane is named.
+from probe_selector import FALLBACK_SUFFIX  # noqa: E402
 
 
 @pytest.fixture
@@ -87,7 +91,11 @@ def _litellm_params(entry):
 
 
 def _is_fallback(name: str) -> bool:
-    """A fallback entry's model_name ends with the fallback suffix."""
+    """A fallback entry's model_name ends with the fallback suffix.
+
+    Delegates to the shared probe selector (refs #174) so the contract tests
+    and the health probes share one definition of a fallback lane.
+    """
     return isinstance(name, str) and name.endswith(FALLBACK_SUFFIX)
 
 
