@@ -152,12 +152,19 @@ fi
 # ── Test 5: docker compose config smoke (when Docker available) ─
 echo "Test 5: docker compose config smoke (guarded)"
 if command -v docker >/dev/null 2>&1; then
+    # docker-compose.yml declares `env_file: .env`; newer Docker Compose
+    # hard-errors when it is missing. A transient stub satisfies the
+    # file-existence check (mirrors ci.yml's own compose validation).
+    touch .env
+    trap 'rm -f .env' EXIT
     if docker compose -f "$BASE" config >/dev/null 2>&1 \
        && docker compose -f "$BASE" -f "$OVERLAY" config >/dev/null 2>&1; then
         pass "docker compose config parses base + overlay"
     else
         fail "docker compose config failed (base or overlay)"
     fi
+    rm -f .env
+    trap - EXIT
 else
     echo "  ℹ️  docker not available — skipping compose config smoke"
     pass "docker compose config smoke skipped (no docker)"

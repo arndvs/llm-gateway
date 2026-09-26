@@ -17,5 +17,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
   python3 "$SCRIPT_DIR/scripts/db_mode_guard.py" || exit 1
 
+# Pass through explicit commands (e.g. `docker run image printenv BUILD_SHA`)
+# so the image stays introspectable; the guard above still runs first.
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
+
 # The canonical LiteLLM proxy invocation (mirrors the previous Dockerfile CMD).
-exec litellm --config litellm_config.yaml --port 4000 --host 0.0.0.0 "$@"
+exec litellm --config litellm_config.yaml --port 4000 --host 0.0.0.0
