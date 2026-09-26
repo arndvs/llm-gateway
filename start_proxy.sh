@@ -17,7 +17,9 @@ fi
 # shellcheck disable=SC1091  # sourced from the repo, not available at lint time
 source "$SCRIPT_DIR/scripts/_launch_proxy.sh"
 
-PORT="${LITELLM_PORT:-4000}"
+# Effective port comes from the canonical resolver (refs #195) — the same
+# precedence chain claude_enable.py uses — not a hand-parsed LITELLM_PORT.
+PORT="$(resolve_proxy_port)"
 
 echo "Starting LiteLLM proxy (OpenRouter primary, GitHub Copilot fallback) on port ${PORT}..."
 echo ""

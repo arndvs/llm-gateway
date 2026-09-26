@@ -1,6 +1,10 @@
 .PHONY: help setup start stop test test-stream generate-config claude-enable claude-disable claude-status install-claude
 
-PORT ?= 4000
+# Effective port is owned by scripts/proxy_endpoint.py (refs #195) — the
+# canonical precedence chain (PROXY_BASE_URL → settings ANTHROPIC_BASE_URL →
+# LITELLM_PORT/.env → localhost:4000). Targets quote it via the resolver CLI
+# instead of parsing the port by hand.
+PORT := $(shell python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p')
 
 help:
 	@echo ""
@@ -55,14 +59,14 @@ print('   LITELLM_MASTER_KEY stored in .env'); \
 start:
 	@if [ ! -f .env ]; then echo "❌ .env not found. Run 'make setup' first."; exit 1; fi
 	@set -a && . ./.env && set +a && \
-	PORT=$${LITELLM_PORT:-$(PORT)} && \
+	PORT=$$(python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p') && \
      echo "Starting LiteLLM proxy (OpenRouter primary, GitHub Copilot fallback) on port $$PORT..." && \
      source scripts/_launch_proxy.sh && \
      launch_proxy "$$PORT" "litellm_config.yaml"
 stop:
 	@if [ ! -f .env ]; then echo "❌ .env not found. Run 'make setup' first."; exit 1; fi
 	@set -a && . ./.env && set +a && \
-	PORT=$${LITELLM_PORT:-$(PORT)} && \
+	PORT=$$(python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p') && \
 	pkill -f "litellm --config .*litellm_config.yaml --port $$PORT" 2>/dev/null && echo "✅ Proxy stopped" || echo "ℹ️  No proxy process found"
 
 # ── Config generation ──────────────────────────────────────────
@@ -77,7 +81,7 @@ generate-config:
 test:
 	@if [ ! -f .env ]; then echo "❌ .env not found. Run 'make setup' first."; exit 1; fi
 	@set -a && . ./.env && set +a && \
-	PORT=$${LITELLM_PORT:-$(PORT)} && \
+	PORT=$$(python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p') && \
 	MASTER_KEY=$$LITELLM_MASTER_KEY && \
 	echo "Testing proxy at http://localhost:$$PORT..." && \
 	curl -sf -X POST http://localhost:$$PORT/v1/messages \
@@ -90,7 +94,7 @@ test:
 test-stream:
 	@if [ ! -f .env ]; then echo "❌ .env not found. Run 'make setup' first."; exit 1; fi
 	@set -a && . ./.env && set +a && \
-	PORT=$${LITELLM_PORT:-$(PORT)} && \
+	PORT=$$(python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p') && \
 	MASTER_KEY=$$LITELLM_MASTER_KEY && \
 	echo "Testing streaming (SSE) at http://localhost:$$PORT..." && \
 	RESPONSE=$$(curl -sf -X POST http://localhost:$$PORT/v1/messages \
@@ -116,7 +120,7 @@ test-stream:
 claude-enable:
 	@if [ ! -f .env ]; then echo "❌ .env not found. Run 'make setup' first."; exit 1; fi
 	@set -a && . ./.env && set +a && \
-	PORT=$${LITELLM_PORT:-$(PORT)} && \
+	PORT=$$(python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p') && \
 	MASTER_KEY=$$LITELLM_MASTER_KEY && \
 	if [ -z "$$MASTER_KEY" ]; then echo "❌ LITELLM_MASTER_KEY not found in .env"; exit 1; fi; \
 	SETTINGS_FILE="$$HOME/.claude/settings.json"; \
@@ -146,7 +150,7 @@ claude-status:
 	if [ -f "$$SETTINGS_FILE" ]; then \
 		python3 scripts/claude_status_redact.py < "$$SETTINGS_FILE" 2>/dev/null || { echo '(could not parse settings)'; exit 0; }; \
 		echo ""; \
-		python3 scripts/proxy_status.py "$$SETTINGS_FILE" "$(PORT)"; \
+		python3 scripts/proxy_status.py "$$SETTINGS_FILE" "$$(python3 scripts/proxy_endpoint.py | sed -n 's/^port=//p')"; \
 	else \
 		echo "No settings file — using Claude Code defaults (Anthropic direct)"; \
 	fi

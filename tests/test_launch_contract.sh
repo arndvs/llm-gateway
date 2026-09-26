@@ -82,6 +82,32 @@ else
     fail "canonical uv run command not found in $LAUNCH"
 fi
 
+# ── Test 7: launch_proxy's port default delegates to the resolver ──
+echo "Test 7: launch_proxy port default delegates to the resolver (refs #195)"
+if grep -q 'resolve_proxy_port' "$LAUNCH" \
+   && ! grep -q 'local port="${1:-4000}"' "$LAUNCH"; then
+    pass "launch_proxy defaults port via resolve_proxy_port, no literal 4000"
+else
+    fail "launch_proxy still has a literal 4000 default or lacks resolver delegation"
+fi
+
+# ── Test 8: no entry point parses the port by hand anymore ─────
+echo "Test 8: no entry point parses the port by hand (refs #195)"
+# start_proxy.sh must derive PORT from the resolver, not LITELLM_PORT:-4000.
+if grep -q 'PORT="$(resolve_proxy_port)"' start_proxy.sh \
+   && ! grep -q 'PORT="${LITELLM_PORT:-4000}"' start_proxy.sh; then
+    pass "start_proxy.sh derives PORT from the resolver"
+else
+    fail "start_proxy.sh still parses the port by hand"
+fi
+# Makefile start/stop must quote the resolver CLI, not LITELLM_PORT:-$(PORT).
+if grep -q 'proxy_endpoint.py | sed' Makefile \
+   && ! grep -q 'PORT=$${LITELLM_PORT:-' Makefile; then
+    pass "Makefile start/stop quote the resolver CLI"
+else
+    fail "Makefile still parses the port by hand"
+fi
+
 echo ""
 echo "Result: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

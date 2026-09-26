@@ -14,6 +14,19 @@
 _LAUNCH_PROXY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAUNCH_PROXY_ROOT="$(cd "$_LAUNCH_PROXY_DIR/.." && pwd)"
 
+# resolve_proxy_port — quote the canonical endpoint resolver (refs #195).
+#
+# The proxy's own port question has one owner: scripts/proxy_endpoint.py
+# (precedence PROXY_BASE_URL → settings ANTHROPIC_BASE_URL → LITELLM_PORT/.env
+# → localhost:4000). Every launcher delegates here instead of parsing the port
+# by hand, so what gets launched and what claude-enable configures derive from
+# the same chain. PYTHONPATH is set so the import resolves from the repo root
+# regardless of cwd.
+resolve_proxy_port() {
+  PYTHONPATH="$LAUNCH_PROXY_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -c 'from proxy_endpoint import resolve_proxy_endpoint; print(resolve_proxy_endpoint(env_file=".env").port)'
+}
+
 # launch_proxy [port] [config_path]
 #
 # Validates LITELLM_MASTER_KEY is set, reads the LiteLLM version from
@@ -21,8 +34,12 @@ LAUNCH_PROXY_ROOT="$(cd "$_LAUNCH_PROXY_DIR/.." && pwd)"
 # exec-vs-subshell semantics by how they invoke it:
 #   - start_proxy.sh:  exec launch_proxy "$PORT" "$CONFIG"   (replaces shell)
 #   - Makefile:start:  launch_proxy "$PORT" "$CONFIG"        (stays in subshell)
+#
+# The port defaults to the canonical resolver's answer (refs #195) so the
+# launch path quotes the same precedence chain as claude_enable.py — the port
+# the proxy starts on and the URL claude-enable writes can never diverge.
 launch_proxy() {
-  local port="${1:-4000}"
+  local port="${1:-$(resolve_proxy_port)}"
   local config_path="${2:-$LAUNCH_PROXY_ROOT/litellm_config.yaml}"
 
   if [[ -z "${LITELLM_MASTER_KEY:-}" ]]; then
