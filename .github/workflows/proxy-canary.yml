@@ -23,7 +23,7 @@ jobs:
 
       - name: Fetch probe script from hub (pinned SHA)
         run: |
-          bash scripts/fetch_probe_from_hub.sh "$RUNNER_TEMP"
+          bash scripts/fetch_probe_from_hub.sh --with-parser "$RUNNER_TEMP"
 
       - name: Probe proxy (readiness + real completion)
         id: probe
