@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 
 from fastapi import APIRouter
 
@@ -40,9 +41,20 @@ custom_api_router = APIRouter()
 # of the process working directory.
 _MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Memoized git fallback result. The SHA is constant for the process lifetime,
+# so the subprocess runs at most once — not once per /health/version request.
+_GIT_SHA_CACHE: str | None = None
+
 
 def _git_sha_fallback() -> str:
-    """Try ``git rev-parse --short HEAD``; return 'unknown' on any failure."""
+    """Try ``git rev-parse --short HEAD``; return 'unknown' on any failure.
+
+    Memoized at module scope: the subprocess runs at most once per process.
+    Failures write a one-line stderr diagnostic (metadata-only, never raises).
+    """
+    global _GIT_SHA_CACHE
+    if _GIT_SHA_CACHE is not None:
+        return _GIT_SHA_CACHE
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -52,10 +64,21 @@ def _git_sha_fallback() -> str:
             cwd=_MODULE_DIR,
         )
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except Exception:
-        pass
-    return "unknown"
+            _GIT_SHA_CACHE = result.stdout.strip()
+            return _GIT_SHA_CACHE
+        _GIT_SHA_CACHE = "unknown"
+        print(
+            f"health_version: git rev-parse failed (rc={result.returncode}): "
+            f"{result.stderr.strip() or 'no stderr'}",
+            file=sys.stderr,
+        )
+    except Exception as exc:  # pragma: no cover
+        _GIT_SHA_CACHE = "unknown"
+        print(
+            f"health_version: git rev-parse raised {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+    return _GIT_SHA_CACHE
 
 
 def get_version() -> dict:
@@ -101,8 +124,13 @@ def _register_router():
 
         app.include_router(custom_api_router)
         _router_registered = True
-    except Exception:
-        pass
+    except Exception as exc:  # pragma: no cover
+        # Metadata-only diagnostic — never break import or request handling.
+        print(
+            f"health_version: router registration failed "
+            f"({type(exc).__name__}): {exc}",
+            file=sys.stderr,
+        )
 
 
 _register_router()

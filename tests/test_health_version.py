@@ -6,7 +6,24 @@ import os
 import sys
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+@pytest.fixture(autouse=True)
+def _reset_git_sha_cache():
+    """Reset the memoized git fallback before each test.
+
+    _git_sha_fallback() caches its result at module scope (runs at most once
+    per process), so without a reset the subprocess mock would never be
+    exercised by tests that run after the first cache fill.
+    """
+    import health_version
+
+    health_version._GIT_SHA_CACHE = None
+    yield
+    health_version._GIT_SHA_CACHE = None
 
 
 class TestGetVersion:
@@ -167,6 +184,46 @@ class TestGitFallback:
             get_version()
 
         mock_run.assert_not_called()
+
+    def test_git_fallback_runs_once_across_repeated_calls(self, monkeypatch):
+        """The git subprocess runs at most once per process, even across calls.
+
+        Regression guard for the memoization: /health/version is hit in probe
+        loops, and spawning git per request is a subprocess per request for
+        zero new information.
+        """
+        monkeypatch.delenv("BUILD_SHA", raising=False)
+        from health_version import get_version
+
+        with patch("health_version.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = "deadbee\n"
+            first = get_version()
+            second = get_version()
+            third = get_version()
+
+        assert first["sha"] == "deadbee"
+        assert second["sha"] == "deadbee"
+        assert third["sha"] == "deadbee"
+        assert mock_run.call_count == 1, (
+            f"Expected git fallback to run once, ran {mock_run.call_count} times"
+        )
+
+    def test_git_failure_writes_stderr_diagnostic(self, monkeypatch, capsys):
+        """A git failure writes a one-line stderr diagnostic, never raises."""
+        monkeypatch.delenv("BUILD_SHA", raising=False)
+        from health_version import get_version
+
+        with patch("health_version.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 128
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = "fatal: not a git repository"
+            result = get_version()
+
+        assert result["sha"] == "unknown"
+        captured = capsys.readouterr()
+        assert "git rev-parse failed" in captured.err
+        assert "not a git repository" in captured.err
 
 
 class TestBuiltAtEdgeCases:
