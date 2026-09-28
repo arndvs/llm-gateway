@@ -30,11 +30,38 @@ jobs:
         run: |
           bash scripts/fetch_probe_from_hub.sh --with-parser "$RUNNER_TEMP"
 
+      - name: Check deployed proxy version vs repo HEAD
+        id: version
+        env:
+          BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: |
+          set -euo pipefail
+          base="${BASE_URL%/}"
+          if [ -z "$base" ]; then
+            echo "::error::LITELLM_BASE_URL is not set on this repo"
+            exit 1
+          fi
+          # /health/version is unauthenticated (same as /health/readiness).
+          deployed=$(curl -s --max-time 10 "$base/health/version" || true)
+          deployed_sha=$(printf '%s' "$deployed" | python3 -c "import json,sys; print(json.load(sys.stdin).get('sha',''))" 2>/dev/null || true)
+          head_sha=$(git rev-parse --short HEAD)
+          if [ -z "$deployed_sha" ]; then
+            echo "::warning::Could not read deployed proxy version from $base/health/version"
+            echo "deployed_sha=unknown" >> "$GITHUB_OUTPUT"
+          elif [ "$deployed_sha" != "$head_sha" ]; then
+            echo "::warning::Deployed proxy is at $deployed_sha but repo HEAD is $head_sha — a probe failure may be a stale deployment, not an upstream change."
+            echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "Deployed proxy is current ($deployed_sha)."
+            echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Probe each configured alias through the proxy
         id: probe
         env:
           BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
           AUTH_TOKEN: ${{ secrets.LITELLM_MASTER_KEY }}
+          DEPLOYED_SHA: ${{ steps.version.outputs.deployed_sha }}
         run: |
           set -euo pipefail
           base="${BASE_URL%/}"
@@ -124,6 +151,8 @@ jobs:
             ${{ steps.probe.outputs.degraded && format('**Degraded (empty, not paging):**{0}', steps.probe.outputs.degraded) || '' }}
 
             Usually means the upstream provider changed model availability (the same 'no choices' class that forced the sonnet -> opus-4.8 remap). Update the alias targets in `litellm_config.yaml`.
+
+            ${{ steps.version.outputs.deployed_sha && format('**Deployed proxy version:** {0} (repo HEAD: {1}) — if these differ, redeploy the proxy before investigating upstream.', steps.version.outputs.deployed_sha, github.sha) || '' }}
 
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
