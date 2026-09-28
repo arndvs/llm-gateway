@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fetch_probe_from_hub.sh — fetch the probe engine from the hub at the pinned SHA.
+# fetch_probe_engine.sh — fetch the probe engine from the hub at the pinned SHA.
 #
 # The proxy health probes (proxy-canary.yml, model-health.yml) are the boundary
 # where this repo's CI measures its own production proxy. Their probe engine
@@ -7,16 +7,15 @@
 # .sandcastle/hub-version.json — not a bare floating `main` URL (refs #194).
 #
 # Reads .sandcastle/hub-version.json → lastPinnedSha, fails loudly when the
-# lock is missing/malformed, and fetches probe_completion.sh (+ probe_parser.py
-# when requested) from the hub at that SHA. Records the fetched SHA in the step
-# summary so a post-hoc audit can tie what ran to the reviewed pin.
+# lock is missing/malformed, and fetches the probe engine artifacts
+# (probe_completion.sh + probe_parser.py) from the hub at that SHA. Records the
+# fetched SHA in the step summary so a post-hoc audit can tie what ran to the
+# reviewed pin.
 #
 # Usage:
-#   bash scripts/fetch_probe_from_hub.sh [--with-parser] [dest_dir]
+#   bash scripts/fetch_probe_engine.sh [dest_dir]
 #
-#   --with-parser  also fetch probe_parser.py (required by probe_completion.sh
-#                  since refs #166)
-#   dest_dir       where to write the scripts (default: $RUNNER_TEMP or /tmp)
+#   dest_dir  where to write the scripts (default: $RUNNER_TEMP or /tmp)
 #
 # Refs #194
 set -euo pipefail
@@ -24,11 +23,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-WITH_PARSER=0
 DEST_DIR="${RUNNER_TEMP:-/tmp}"
 for arg in "$@"; do
   case "$arg" in
-    --with-parser) WITH_PARSER=1 ;;
     *) DEST_DIR="$arg" ;;
   esac
 done
@@ -63,17 +60,17 @@ curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/${PINNED_SHA}/
   -o "$DEST_DIR/probe_completion.sh"
 chmod +x "$DEST_DIR/probe_completion.sh"
 
-if [ "$WITH_PARSER" = "1" ]; then
-  curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/${PINNED_SHA}/templates/scripts/probe_parser.py" \
-    -o "$DEST_DIR/probe_parser.py"
-  chmod +x "$DEST_DIR/probe_parser.py"
-fi
+# probe_parser.py is required by probe_completion.sh on every path (refs #166) —
+# always fetch it; there is no parser-less mode.
+curl -fsSL "https://raw.githubusercontent.com/arndvs/ctrlshft-hub/${PINNED_SHA}/templates/scripts/probe_parser.py" \
+  -o "$DEST_DIR/probe_parser.py"
+chmod +x "$DEST_DIR/probe_parser.py"
 
 # Audit trail: record the fetched SHA + lock location in the step summary.
 {
   echo "Fetched probe engine from ctrlshft-hub at pinned SHA \`${PINNED_SHA}\`"
   echo "Lock: \`.sandcastle/hub-version.json\` (lastPinnedSha)"
-  echo "Scripts: \`probe_completion.sh\`$([ "$WITH_PARSER" = "1" ] && echo ", \`probe_parser.py\`")"
+  echo "Scripts: \`probe_completion.sh\`, \`probe_parser.py\`"
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}" 2>/dev/null || true
 
 echo "✅ Fetched probe engine from hub at ${PINNED_SHA} → $DEST_DIR" >&2

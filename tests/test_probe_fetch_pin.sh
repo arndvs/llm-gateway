@@ -28,7 +28,7 @@ pass() { PASS=$((PASS + 1)); echo "  ✅ $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  ❌ $1"; }
 
 LOCK=".sandcastle/hub-version.json"
-FETCH="scripts/fetch_probe_from_hub.sh"
+FETCH="scripts/fetch_probe_engine.sh"
 
 # ── Test 1: lock file is parseable with non-empty lastPinnedSha ─
 echo "Test 1: hub-version.json lock is parseable with lastPinnedSha"
@@ -46,9 +46,9 @@ fi
 
 # ── Test 2: both workflows invoke the shared fetch script ──────
 echo "Test 2: both workflows invoke the shared fetch script"
-if grep -q 'fetch_probe_from_hub.sh' .github/workflows/proxy-canary.yml \
-   && grep -q 'fetch_probe_from_hub.sh' .github/workflows/model-health.yml; then
-    pass "both workflows call scripts/fetch_probe_from_hub.sh"
+if grep -q 'fetch_probe_engine.sh' .github/workflows/proxy-canary.yml \
+   && grep -q 'fetch_probe_engine.sh' .github/workflows/model-health.yml; then
+    pass "both workflows call scripts/fetch_probe_engine.sh"
 else
     fail "a workflow does not invoke the shared fetch script"
 fi
@@ -77,7 +77,7 @@ fi
 TMP_REPO=$(mktemp -d)
 mkdir -p "$TMP_REPO/scripts"
 cp "$FETCH" "$TMP_REPO/scripts/"
-if (cd "$TMP_REPO" && bash scripts/fetch_probe_from_hub.sh "$TMP_REPO/out" 2>&1 || true) | grep -q "hub-version.json"; then
+if (cd "$TMP_REPO" && bash scripts/fetch_probe_engine.sh "$TMP_REPO/out" 2>&1 || true) | grep -q "hub-version.json"; then
     pass "fetch script fails loudly on a missing lock"
 else
     fail "fetch script does not fail loudly on a missing lock"
