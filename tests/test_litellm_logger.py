@@ -852,6 +852,54 @@ class TestStreamingCallbacks(unittest.TestCase):
             sys.stdout = old_stdout
         self.assertEqual(buf.getvalue(), "")
 
+    def test_async_log_success_event_emits(self):
+        """async_log_success_event returns an awaitable and emits a PROXY_LOG line.
+
+        Regression for the Python 3.12 RuntimeError: the async callback must
+        await the sync emit through the event loop, not call it directly.
+        """
+        kwargs = {"model": "test-model", "call_type": "completion", "stream": True}
+        response_obj = {
+            "choices": [{"finish_reason": "stop", "message": {"content": "hello"}}],
+            "usage": {"completion_tokens": 5},
+        }
+        buf = StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = buf
+            asyncio.run(
+                ProxyObservabilityLogger().async_log_success_event(
+                    kwargs, response_obj, datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 0, 1)
+                )
+            )
+        finally:
+            sys.stdout = old_stdout
+        line = buf.getvalue().strip()
+        assert line.startswith("PROXY_LOG "), f"Expected PROXY_LOG prefix, got: {line!r}"
+        rec = json.loads(line[len("PROXY_LOG "):])
+        assert rec["status"] == "success"
+        assert rec["model"] == "test-model"
+
+    def test_async_log_failure_event_emits(self):
+        """async_log_failure_event returns an awaitable and emits a PROXY_LOG line."""
+        kwargs = {"model": "test-model", "call_type": "completion", "stream": True}
+        buf = StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = buf
+            asyncio.run(
+                ProxyObservabilityLogger().async_log_failure_event(
+                    kwargs, None, datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 0, 1)
+                )
+            )
+        finally:
+            sys.stdout = old_stdout
+        line = buf.getvalue().strip()
+        assert line.startswith("PROXY_LOG "), f"Expected PROXY_LOG prefix, got: {line!r}"
+        rec = json.loads(line[len("PROXY_LOG "):])
+        assert rec["status"] == "failure"
+        assert rec["model"] == "test-model"
+
     def test_emit_with_all_none(self):
         """When everything is None, _emit should not crash."""
         buf = StringIO()
