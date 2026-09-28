@@ -107,8 +107,11 @@ def classify_proxy(url):
 def probe_health(url, timeout=3):
     """True if ``GET <url>/health/readiness`` succeeds (``curl -sf``), else False.
 
-    Any failure — non-zero exit, missing curl, or timeout — yields False so a
-    status report never raises.
+    The probe verifies the endpoint is reachable, not that the service is
+    healthy: ``curl -f`` treats any upstream HTTP error status (401/404/500 …)
+    as exit 22, indistinguishable from 'proxy down'. Any failure — non-zero
+    exit, missing curl, or timeout — yields False so a status report never
+    raises and never mislabels a broken proxy as healthy.
     """
     try:
         result = subprocess.run(
@@ -159,14 +162,21 @@ def render_status(settings, fallback_port=DEFAULT_PORT, probe=probe_health):
 
 
 def main(argv=None):
-    argv = list(sys.argv if argv is None else argv)
-    if len(argv) < 2:
+    """CLI entry point.
+
+    ``argv`` is the argument list WITHOUT the program name (argv[0] is
+    stripped when ``argv`` is None, matching the no-arg contract used by
+    probe_parser.py / probe_selector.py / db_mode_guard.py). Callers passing
+    an explicit list pass only the arguments: ``main(["settings.json", "4000"])``.
+    """
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if len(argv) < 1:
         return 0  # No settings file provided — nothing to report.
-    # Optional argv[2] = the Makefile's $(PORT) default, so `make claude-status
+    # Optional argv[1] = the Makefile's $(PORT) default, so `make claude-status
     # PORT=XXXX` still controls the fallback when .env lacks LITELLM_PORT.
-    make_default_port = argv[2] if len(argv) > 2 and argv[2] else DEFAULT_PORT
+    make_default_port = argv[1] if len(argv) > 1 and argv[1] else DEFAULT_PORT
     try:
-        with open(argv[1]) as f:
+        with open(argv[0]) as f:
             settings = json.load(f)
     except (OSError, json.JSONDecodeError):
         # The Makefile handles parse/read errors before calling us; stay silent

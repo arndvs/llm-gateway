@@ -211,8 +211,9 @@ class TestReadFallbackPort:
 
 class TestMain:
     def test_passes_make_default_port_to_fallback(self, tmp_path, monkeypatch):
-        # `make claude-status PORT=XXXX` passes the port as argv[2]; main() must
+        # `make claude-status PORT=XXXX` passes the port as argv[1]; main() must
         # feed it to read_fallback_port as the default (.env still takes precedence).
+        # argv excludes the program name (argv[0] is stripped by main()).
         settings = tmp_path / "settings.json"
         settings.write_text('{"env": {"ANTHROPIC_BASE_URL": ""}}')
         captured = {}
@@ -222,7 +223,7 @@ class TestMain:
             return default
 
         monkeypatch.setattr(proxy_status, "read_fallback_port", fake_read)
-        proxy_status.main(["proxy_status.py", str(settings), "6543"])
+        proxy_status.main([str(settings), "6543"])
         assert captured["default"] == "6543"
 
 
