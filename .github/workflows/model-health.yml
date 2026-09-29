@@ -28,7 +28,7 @@ jobs:
 
       - name: Fetch probe script from hub (pinned SHA)
         run: |
-          bash scripts/fetch_probe_from_hub.sh --with-parser "$RUNNER_TEMP"
+          bash scripts/fetch_probe_engine.sh "$RUNNER_TEMP"
 
       - name: Check deployed proxy version vs repo HEAD
         id: version

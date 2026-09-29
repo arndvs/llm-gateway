@@ -33,6 +33,7 @@ Claude Code  →  LiteLLM (:4000)  →  openrouter.ai (primary)
 | `start_proxy.sh` | Standalone proxy launcher with `.env` loading |
 | `scripts/claude_enable.py` | Write proxy env vars to `~/.claude/settings.json` |
 | `scripts/claude_disable.py` | Remove proxy config from Claude settings |
+| `scripts/fetch_probe_engine.sh` | Fetch the probe engine (probe_completion.sh + probe_parser.py) from ctrlshft-hub at the pinned SHA |
 | `.env.example` | Template for required environment variables |
 
 ## Conventions

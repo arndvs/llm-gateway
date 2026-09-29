@@ -248,6 +248,19 @@ def _emit(kwargs, response_obj, start_time, end_time, status):
         pass
 
 
+async def _emit_async(kwargs, response_obj, start_time, end_time, status):
+    """Async wrapper around the synchronous ``_emit``.
+
+    LiteLLM fires the async callback hooks from inside the running event loop;
+    calling the blocking ``_emit`` body directly there raises
+    ``RuntimeError: coroutine ignored GeneratorExit`` on Python 3.12 (the
+    Docker base image). Wrapping the sync call in an ``async def`` lets the
+    event loop schedule it without blocking, preserving the module invariant
+    that a logging failure must never affect request handling.
+    """
+    _emit(kwargs, response_obj, start_time, end_time, status)
+
+
 class ProxyObservabilityLogger(CustomLogger):
     def log_success_event(self, kwargs, response_obj, start_time, end_time, **extra_kwargs):
         _emit(kwargs, response_obj, start_time, end_time, "success")
@@ -262,10 +275,10 @@ class ProxyObservabilityLogger(CustomLogger):
         pass
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time, **extra_kwargs):
-        _emit(kwargs, response_obj, start_time, end_time, "success")
+        await _emit_async(kwargs, response_obj, start_time, end_time, "success")
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time, **extra_kwargs):
-        _emit(kwargs, response_obj, start_time, end_time, "failure")
+        await _emit_async(kwargs, response_obj, start_time, end_time, "failure")
 
     async def async_log_stream_event(self, kwargs, response_obj, start_time, end_time, **extra_kwargs):
         # Same as log_stream_event: skip per-chunk logging.
