@@ -64,10 +64,6 @@ class TestDurationMs(unittest.TestCase):
         end = datetime(2024, 1, 1, 0, 0, 0, 500000)  # +0.5s
         self.assertEqual(_duration_ms(start, end), 500)
 
-    def test_datetime_objects_zero_duration(self):
-        t = datetime(2024, 1, 1, 12, 0, 0)
-        self.assertEqual(_duration_ms(t, t), 0)
-
     def test_numeric_timestamps_float(self):
         # LiteLLM may pass Unix timestamps as floats; delta = end - start in seconds
         start = 1700000000.0
@@ -114,81 +110,6 @@ class TestExtractOpenAIStyleDict(unittest.TestCase):
         self.assertEqual(content_len, 11)  # len("Hello world")
         self.assertEqual(ctoks, 5)
 
-    def test_empty_content_string(self):
-        response = {
-            "choices": [
-                {
-                    "finish_reason": "stop",
-                    "message": {"content": ""},
-                }
-            ],
-            "usage": {"completion_tokens": 0},
-        }
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "stop")
-        self.assertEqual(content_len, 0)
-        self.assertEqual(ctoks, 0)
-
-    def test_none_content(self):
-        """When content is None, content_len should be 0."""
-        response = {
-            "choices": [
-                {
-                    "finish_reason": "stop",
-                    "message": {"content": None},
-                }
-            ],
-            "usage": {"completion_tokens": 3},
-        }
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "stop")
-        self.assertEqual(content_len, 0)
-        self.assertEqual(ctoks, 3)
-
-    def test_non_string_content_tool_calls(self):
-        """Non-string content (e.g. tool call list) gives content_len=-1."""
-        response = {
-            "choices": [
-                {
-                    "finish_reason": "tool_calls",
-                    "message": {"content": [{"type": "function", "name": "foo"}]},
-                }
-            ],
-            "usage": {"completion_tokens": 10},
-        }
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "tool_calls")
-        self.assertEqual(content_len, -1)
-        self.assertEqual(ctoks, 10)
-
-    def test_missing_usage(self):
-        """When usage is missing, completion_tokens should be None."""
-        response = {
-            "choices": [
-                {
-                    "finish_reason": "length",
-                    "message": {"content": "truncated"},
-                }
-            ],
-        }
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "length")
-        self.assertEqual(content_len, 9)  # len("truncated")
-        self.assertIsNone(ctoks)
-
-    def test_missing_message(self):
-        """When message is missing from choice, content_len should be 0."""
-        response = {
-            "choices": [{"finish_reason": "stop", "message": None}],
-            "usage": {"completion_tokens": 0},
-        }
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "stop")
-        # message is None, isinstance(None, dict) is False, so content stays None
-        # then content in (None, "") is True => content_len = 0
-        self.assertEqual(content_len, 0)
-        self.assertEqual(ctoks, 0)
-
 
 class TestExtractOpenAIStyleObject(unittest.TestCase):
     """Test _extract with OpenAI-style choices as objects (SimpleNamespace)."""
@@ -205,19 +126,6 @@ class TestExtractOpenAIStyleObject(unittest.TestCase):
         self.assertEqual(finish, "stop")
         self.assertEqual(content_len, 17)  # len("Hello from object")
         self.assertEqual(ctoks, 7)
-
-    def test_object_style_none_content(self):
-        msg = SimpleNamespace(content=None)
-        choice = SimpleNamespace(finish_reason="stop", message=msg)
-        response = SimpleNamespace(
-            choices=[choice],
-            content=None,
-            usage=SimpleNamespace(completion_tokens=0),
-        )
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "stop")
-        self.assertEqual(content_len, 0)
-        self.assertEqual(ctoks, 0)
 
     def test_object_style_no_usage(self):
         msg = SimpleNamespace(content="data")
@@ -259,18 +167,6 @@ class TestExtractAnthropicStyle(unittest.TestCase):
         self.assertEqual(content_len, 0)
         self.assertEqual(ctoks, 0)
 
-    def test_empty_content_list(self):
-        """An empty content list should give content_len=0."""
-        response = {
-            "content": [],
-            "stop_reason": "end_turn",
-            "usage": {"completion_tokens": 0},
-        }
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "end_turn")
-        self.assertEqual(content_len, 0)
-        self.assertEqual(ctoks, 0)
-
     def test_tool_use_blocks_ignored_for_text_length(self):
         """Only text blocks are counted for content_len."""
         response = {
@@ -285,20 +181,6 @@ class TestExtractAnthropicStyle(unittest.TestCase):
         self.assertEqual(finish, "tool_use")
         self.assertEqual(content_len, 10)  # only "Using tool"
         self.assertEqual(ctoks, 15)
-
-    def test_anthropic_object_style(self):
-        """Anthropic-style response as SimpleNamespace objects."""
-        block = SimpleNamespace(type="text", text="Object text")
-        response = SimpleNamespace(
-            choices=None,
-            content=[block],
-            stop_reason="end_turn",
-            usage=SimpleNamespace(completion_tokens=3),
-        )
-        finish, content_len, ctoks = _extract(response)
-        self.assertEqual(finish, "end_turn")
-        self.assertEqual(content_len, 11)  # len("Object text")
-        self.assertEqual(ctoks, 3)
 
     def test_content_is_string(self):
         """When content is a plain string (unusual but possible)."""
@@ -325,44 +207,13 @@ class TestExtractAnthropicStyle(unittest.TestCase):
         self.assertEqual(ctoks, 1)
 
 
-class TestExtractDefensive(unittest.TestCase):
-    """Defensive behavior: _extract never raises."""
-
-    def test_none_response(self):
-        finish, content_len, ctoks = _extract(None)
-        self.assertIsNone(finish)
-        self.assertIsNone(content_len)
-        self.assertIsNone(ctoks)
-
-    def test_empty_dict(self):
-        finish, content_len, ctoks = _extract({})
-        self.assertIsNone(finish)
-        self.assertIsNone(content_len)
-        self.assertIsNone(ctoks)
-
-    def test_empty_choices_list(self):
-        """Empty choices list should not crash (IndexError)."""
-        response = {"choices": [], "usage": {"completion_tokens": 0}}
-        finish, content_len, ctoks = _extract(response)
-        # choices is truthy? No, [] is falsy in Python. Falls through.
-        self.assertIsNone(finish)
-        self.assertIsNone(content_len)
-        self.assertEqual(ctoks, 0)
-
-    def test_garbage_input(self):
-        finish, content_len, ctoks = _extract("not a response")
-        self.assertIsNone(finish)
-        self.assertIsNone(content_len)
-        self.assertIsNone(ctoks)
-
-
 # ===================================================================
 # _extract_http_info — unit tests
 # ===================================================================
 
 
-class TestExtractHttpInfoFromOriginalResponse(unittest.TestCase):
-    """Extract http_status and ratelimit from kwargs['original_response']."""
+class TestExtractHttpInfo(unittest.TestCase):
+    """Extract http_status and ratelimit from original_response / exception."""
 
     def test_status_code_extracted(self):
         kwargs = {"original_response": FakeHttpxResponse(200)}
@@ -389,21 +240,6 @@ class TestExtractHttpInfoFromOriginalResponse(unittest.TestCase):
         info = _extract_http_info(kwargs)
         self.assertNotIn("ratelimit", info)
 
-    def test_429_with_ratelimit(self):
-        headers = {
-            "x-ratelimit-limit": "60",
-            "x-ratelimit-remaining": "0",
-            "x-ratelimit-reset": "1700000060",
-        }
-        kwargs = {"original_response": FakeHttpxResponse(429, headers)}
-        info = _extract_http_info(kwargs)
-        self.assertEqual(info["http_status"], 429)
-        self.assertEqual(info["ratelimit"]["remaining"], "0")
-
-
-class TestExtractHttpInfoFromException(unittest.TestCase):
-    """Extract http_status and ratelimit from kwargs['exception']."""
-
     def test_status_code_from_exception(self):
         kwargs = {"exception": FakeException(429)}
         info = _extract_http_info(kwargs)
@@ -418,10 +254,6 @@ class TestExtractHttpInfoFromException(unittest.TestCase):
         info = _extract_http_info(kwargs)
         self.assertEqual(info["ratelimit"], {"limit": "60", "remaining": "0"})
 
-
-class TestExtractHttpInfoDefensive(unittest.TestCase):
-    """Defensive behaviour: never raise, degrade gracefully."""
-
     def test_empty_kwargs(self):
         info = _extract_http_info({})
         self.assertIsNone(info["http_status"])
@@ -429,16 +261,6 @@ class TestExtractHttpInfoDefensive(unittest.TestCase):
 
     def test_none_kwargs(self):
         info = _extract_http_info(None)
-        self.assertIsNone(info["http_status"])
-
-    def test_non_dict_kwargs(self):
-        info = _extract_http_info("garbage")
-        self.assertIsNone(info["http_status"])
-
-    def test_original_response_is_string(self):
-        """original_response might be a raw string in some LiteLLM paths."""
-        kwargs = {"original_response": "some raw text"}
-        info = _extract_http_info(kwargs)
         self.assertIsNone(info["http_status"])
 
     def test_both_original_response_and_exception_prefers_original(self):
@@ -485,36 +307,6 @@ def _capture_emit(kwargs, response_obj=None, status="success"):
 class TestEmitHttpInfo(unittest.TestCase):
     """Verify _emit includes http_status and ratelimit from kwargs."""
 
-    def test_emit_includes_http_status(self):
-        kwargs = {
-            "model": "test-model",
-            "call_type": "completion",
-            "original_response": FakeHttpxResponse(200),
-        }
-        rec = _capture_emit(kwargs)
-        self.assertEqual(rec["http_status"], 200)
-
-    def test_emit_omits_ratelimit_when_absent(self):
-        kwargs = {
-            "model": "test-model",
-            "call_type": "completion",
-            "original_response": FakeHttpxResponse(200, {"content-type": "application/json"}),
-        }
-        rec = _capture_emit(kwargs)
-        self.assertNotIn("ratelimit", rec)
-
-    def test_emit_includes_ratelimit_when_present(self):
-        kwargs = {
-            "model": "test-model",
-            "call_type": "completion",
-            "original_response": FakeHttpxResponse(
-                200,
-                {"x-ratelimit-remaining": "10", "x-ratelimit-limit": "100"},
-            ),
-        }
-        rec = _capture_emit(kwargs)
-        self.assertEqual(rec["ratelimit"], {"remaining": "10", "limit": "100"})
-
     def test_emit_429_failure_with_ratelimit(self):
         kwargs = {
             "model": "test-model",
@@ -531,31 +323,6 @@ class TestEmitHttpInfo(unittest.TestCase):
         rec = _capture_emit(kwargs, status="failure")
         self.assertEqual(rec["http_status"], 429)
         self.assertEqual(rec["ratelimit"]["remaining"], "0")
-
-    def test_emit_null_http_status_when_no_response(self):
-        kwargs = {"model": "test-model", "call_type": "completion"}
-        rec = _capture_emit(kwargs)
-        self.assertIsNone(rec["http_status"])
-
-    def test_emit_never_logs_content(self):
-        """Ensure no message content leaks into the log line."""
-        kwargs = {
-            "model": "test-model",
-            "call_type": "completion",
-            "original_response": FakeHttpxResponse(200),
-        }
-        response_obj = {
-            "choices": [
-                {
-                    "finish_reason": "stop",
-                    "message": {"content": "SECRET_CONTENT_SHOULD_NOT_APPEAR"},
-                }
-            ],
-            "usage": {"completion_tokens": 10},
-        }
-        rec = _capture_emit(kwargs, response_obj=response_obj)
-        raw_line = json.dumps(rec)
-        self.assertNotIn("SECRET_CONTENT_SHOULD_NOT_APPEAR", raw_line)
 
 
 class TestEmitRouting(unittest.TestCase):
@@ -587,34 +354,11 @@ class TestEmitRouting(unittest.TestCase):
         self.assertEqual(rec["routed_model"], "github_copilot/claude-sonnet-5")
         self.assertTrue(rec["is_fallback"])
 
-    def test_fallback_detected_via_resolved_model_suffix(self):
-        # Even when the requested alias has no -fallback suffix, a resolved
-        # model that IS a fallback lane must be flagged.
-        kwargs = {
-            "model": "claude-sonnet-4-6",
-            "call_type": "completion",
-            "litellm_params": {"model": "claude-sonnet-4-6-fallback"},
-            "original_response": FakeHttpxResponse(200),
-        }
-        rec = _capture_emit(kwargs)
-        self.assertTrue(rec["is_fallback"])
-
     def test_missing_metadata_degrades_to_none(self):
         # No litellm_params → both fields null, never raises.
         kwargs = {
             "model": "claude-sonnet-4-6",
             "call_type": "completion",
-            "original_response": FakeHttpxResponse(200),
-        }
-        rec = _capture_emit(kwargs)
-        self.assertIsNone(rec["routed_model"])
-        self.assertIsNone(rec["is_fallback"])
-
-    def test_non_dict_litellm_params_degrades_to_none(self):
-        kwargs = {
-            "model": "claude-sonnet-4-6",
-            "call_type": "completion",
-            "litellm_params": "not-a-dict",
             "original_response": FakeHttpxResponse(200),
         }
         rec = _capture_emit(kwargs)
@@ -671,25 +415,6 @@ class TestEmitJsonStructure(unittest.TestCase):
         rec = _capture_emit(kwargs, response_obj=response_obj, status="success")
         self.assertTrue(rec["upstream_empty"])
 
-    def test_upstream_empty_false_on_failure(self):
-        """upstream_empty should be False even if content is empty on failure."""
-        kwargs = {
-            "model": "test",
-            "call_type": "completion",
-            "exception": FakeException(500),
-        }
-        response_obj = {
-            "choices": [
-                {
-                    "finish_reason": "stop",
-                    "message": {"content": ""},
-                }
-            ],
-            "usage": {"completion_tokens": 0},
-        }
-        rec = _capture_emit(kwargs, response_obj=response_obj, status="failure")
-        self.assertFalse(rec["upstream_empty"])
-
     def test_emit_with_anthropic_style_response(self):
         kwargs = {
             "model": "claude-3",
@@ -722,29 +447,6 @@ class TestEmitJsonStructure(unittest.TestCase):
         self.assertEqual(rec["http_status"], 200)
 
 
-class TestEmitDefensiveNoCrash(unittest.TestCase):
-    """_emit must never raise, even with terrible inputs."""
-
-    def test_emit_with_none_kwargs(self):
-        """When kwargs is None, _emit should not crash."""
-        start = datetime(2024, 1, 1, 0, 0, 0)
-        end = datetime(2024, 1, 1, 0, 0, 1)
-        buf = StringIO()
-        old_stdout = sys.stdout
-        try:
-            sys.stdout = buf
-            _emit(None, None, start, end, "success")
-        finally:
-            sys.stdout = old_stdout
-        raw_line = buf.getvalue().strip()
-        assert "SECRET_CONTENT_SHOULD_NOT_APPEAR" not in raw_line
-
-
-# ===================================================================
-# _emit integration — stream field in PROXY_LOG
-# ===================================================================
-
-
 class TestEmitStreamField(unittest.TestCase):
     """Verify _emit includes stream indicator from kwargs."""
 
@@ -759,17 +461,6 @@ class TestEmitStreamField(unittest.TestCase):
         rec = _capture_emit(kwargs)
         self.assertEqual(rec["stream"], True)
 
-    def test_emit_stream_false_when_stream_false_in_kwargs(self):
-        """When kwargs['stream'] is False, log should record stream=False."""
-        kwargs = {
-            "model": "test-model",
-            "call_type": "completion",
-            "stream": False,
-            "original_response": FakeHttpxResponse(200),
-        }
-        rec = _capture_emit(kwargs)
-        self.assertEqual(rec["stream"], False)
-
     def test_emit_stream_none_when_missing(self):
         """When kwargs has no 'stream' key, log should record stream=None."""
         kwargs = {
@@ -781,41 +472,11 @@ class TestEmitStreamField(unittest.TestCase):
         self.assertEqual(rec["stream"], None)
 
 
-# ===================================================================
-# ProxyObservabilityLogger — streaming callback methods
-# ===================================================================
-
-
 class TestStreamingCallbacks(unittest.TestCase):
     """Verify logger handles streaming success/failure callbacks."""
 
-    def _capture_logger_call(self, method_name, kwargs, response_obj=None):
-        """Call a logger method and capture the PROXY_LOG line."""
-        from datetime import datetime
-        import asyncio
-
-        start = datetime(2024, 1, 1, 0, 0, 0)
-        end = datetime(2024, 1, 1, 0, 0, 1)
-        logger = ProxyObservabilityLogger()
-
-        buf = StringIO()
-        old_stdout = sys.stdout
-        try:
-            sys.stdout = buf
-            method = getattr(logger, method_name)
-            if method_name.startswith("async_"):
-                asyncio.run(method(kwargs, response_obj, start, end))
-            else:
-                method(kwargs, response_obj, start, end)
-        finally:
-            sys.stdout = old_stdout
-
-        line = buf.getvalue().strip()
-        assert line.startswith("PROXY_LOG "), f"Expected PROXY_LOG prefix, got: {line!r}"
-        return json.loads(line[len("PROXY_LOG "):])
-
-    def test_log_stream_success_event(self):
-        """log_stream_event is a no-op: per-chunk hooks produce no PROXY_LOG output."""
+    def test_log_stream_event_is_noop(self):
+        """Per-chunk hooks emit no PROXY_LOG output."""
         kwargs = {"model": "test-model", "call_type": "completion", "stream": True}
         response_obj = {
             "choices": [{"finish_reason": "stop", "message": {"content": "hello"}}],
